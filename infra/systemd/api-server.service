@@ -1,0 +1,20 @@
+[Unit]
+Description=AI Agent Platform - FastAPI Server
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=agent
+Group=agent
+WorkingDirectory=/opt/ai-agent-platform
+ExecStart=/opt/ai-agent-platform/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+Environment=PYTHONPATH=/opt/ai-agent-platform
+EnvironmentFile=/opt/ai-agent-platform/backend/.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=api-server
+
+[Install]
+WantedBy=multi-user.target
