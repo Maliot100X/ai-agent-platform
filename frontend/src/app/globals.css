@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --accent-blue: #0ea5e9;
+  --accent-purple: #8b5cf6;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-yellow: #f59e0b;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+/* Glass card effect */
+.glass-card {
+  @apply bg-surface-900/50 backdrop-blur-xl border border-white/5 rounded-2xl;
+}
+
+/* Glow effects */
+.glow-blue {
+  box-shadow: 0 0 15px rgba(14, 165, 233, 0.3);
+}
+.glow-purple {
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+}
+.glow-green {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+}
+
+/* Signal badges */
+.signal-buy {
+  @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30;
+}
+.signal-sell {
+  @apply bg-red-500/20 text-red-400 border border-red-500/30;
+}
+.signal-hold {
+  @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30;
+}

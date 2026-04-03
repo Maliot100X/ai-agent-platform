@@ -1,0 +1,20 @@
+[Unit]
+Description=AI Agent Platform - Celery Workers
+After=network.target redis.service
+
+[Service]
+Type=simple
+User=agent
+Group=agent
+WorkingDirectory=/opt/ai-agent-platform
+ExecStart=/opt/ai-agent-platform/venv/bin/celery -A backend.services.tasks worker --loglevel=info --concurrency=4
+Restart=always
+RestartSec=10
+Environment=PYTHONPATH=/opt/ai-agent-platform
+EnvironmentFile=/opt/ai-agent-platform/backend/.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=celery-workers
+
+[Install]
+WantedBy=multi-user.target
