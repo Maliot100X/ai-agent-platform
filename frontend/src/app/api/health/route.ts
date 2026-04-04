@@ -25,6 +25,7 @@ export async function GET() {
       helius: process.env.HELIUS_API_KEY ? "active" : "not configured",
       telegram: process.env.TELEGRAM_BOT_TOKEN ? "active" : "not configured",
       vercel_ai: process.env.VERCEL_API_KEY ? "active" : "not configured",
+      deepgram: process.env.DEEPGRAM_API_KEY ? "active" : "not configured",
     },
   });
 }
