@@ -33,6 +33,8 @@ export default function VoiceAgentPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const playbackContextRef = useRef<AudioContext | null>(null);
+  const audioQueueRef = useRef<Int16Array[]>([]);
+  const isPlayingRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -114,7 +116,7 @@ When asked about a token, mention: name, market cap, signal, and reasoning.`,
             speak: {
               provider: {
                 type: "deepgram",
-                model: "aura-2-theia-en",
+                model: "aura-2-iris-en",
               },
             },
             greeting: "Hey, FLUXMINT AI here. What do you want to know about the markets today?",
@@ -199,19 +201,48 @@ When asked about a token, mention: name, market cap, signal, and reasoning.`,
     }
   }, [addMessage]);
 
+  // Buffer audio chunks and play them as a continuous stream
   const playAudio = async (data: Blob | ArrayBuffer) => {
     try {
-      if (!playbackContextRef.current) {
-        playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
-      }
-      const ctx = playbackContextRef.current;
       const arrayBuffer = data instanceof Blob ? await data.arrayBuffer() : data;
-
-      // Deepgram sends raw linear16 PCM at 24kHz
       const int16 = new Int16Array(arrayBuffer);
-      const float32 = new Float32Array(int16.length);
-      for (let i = 0; i < int16.length; i++) {
-        float32[i] = int16[i] / 32768;
+      audioQueueRef.current.push(int16);
+
+      // Start playback loop if not already running
+      if (!isPlayingRef.current) {
+        isPlayingRef.current = true;
+        playBufferedAudio();
+      }
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const playBufferedAudio = () => {
+    if (!playbackContextRef.current) {
+      playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
+    }
+    const ctx = playbackContextRef.current;
+
+    const processQueue = () => {
+      if (audioQueueRef.current.length === 0) {
+        isPlayingRef.current = false;
+        return;
+      }
+
+      // Combine all queued chunks into one buffer for smooth playback
+      const chunks = audioQueueRef.current.splice(0);
+      const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+      const combined = new Int16Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      const float32 = new Float32Array(combined.length);
+      for (let i = 0; i < combined.length; i++) {
+        float32[i] = combined[i] / 32768;
       }
 
       const audioBuffer = ctx.createBuffer(1, float32.length, 24000);
@@ -220,10 +251,19 @@ When asked about a token, mention: name, market cap, signal, and reasoning.`,
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(ctx.destination);
+      source.onended = () => {
+        // Check for more chunks after this one finishes
+        if (audioQueueRef.current.length > 0) {
+          processQueue();
+        } else {
+          isPlayingRef.current = false;
+        }
+      };
       source.start();
-    } catch {
-      // Audio playback error - silently ignore
-    }
+    };
+
+    // Wait a small moment to collect initial chunks before playing
+    setTimeout(processQueue, 100);
   };
 
   const startMicrophone = async () => {
