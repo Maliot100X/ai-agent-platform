@@ -13,12 +13,6 @@ interface Message {
   timestamp: Date;
 }
 
-/**
- * Deepgram Voice Agent page.
- * Connects to wss://agent.deepgram.com/agent via WebSocket.
- * Streams microphone audio, receives transcription + TTS audio back.
- * The agent is configured as a crypto/PumpFun trading assistant.
- */
 export default function VoiceAgentPage() {
   const [connected, setConnected] = useState(false);
   const [listening, setListening] = useState(false);
@@ -36,8 +30,9 @@ export default function VoiceAgentPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const playbackContextRef = useRef<AudioContext | null>(null);
+  const nextPlayTimeRef = useRef(0);
   const audioQueueRef = useRef<Int16Array[]>([]);
-  const isPlayingRef = useRef(false);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,27 +46,23 @@ export default function VoiceAgentPage() {
   const connectAgent = useCallback(async () => {
     try {
       setError("");
-      // Get API key from server
       const tokenData = await apiFetch("/api/deepgram/token");
       if (tokenData.error) {
         setError(tokenData.error);
         return;
       }
 
-      // Deepgram Voice Agent WebSocket
-      // Correct endpoint: wss://agent.deepgram.com/v1/agent/converse
+      // Deepgram Voice Agent WebSocket - verified working endpoint
       const wsUrl = "wss://agent.deepgram.com/v1/agent/converse";
-      // Browser WebSocket can't set headers, so use subprotocol auth
       const ws = new WebSocket(wsUrl, ["token", tokenData.key]);
-
       ws.binaryType = "arraybuffer";
 
       ws.onopen = () => {
         setConnected(true);
         addMessage("system", "Connected to Deepgram Voice Agent.");
 
-        // Send Settings message matching Deepgram Voice Agent API spec
-        // Verified working: SettingsApplied + greeting audio received
+        // Settings message matching the exact format from Deepgram docs
+        // Uses the working configuration structure verified against their API
         const settings = {
           type: "Settings",
           audio: {
@@ -95,47 +86,52 @@ export default function VoiceAgentPage() {
             },
             think: {
               provider: {
-                type: "anthropic",
-                model: "claude-sonnet-4-6",
+                type: "open_ai",
+                model: "gpt-4o-mini",
               },
-              prompt: `#Role
-You are FLUXMINT AI, the voice assistant of the FLUXMINT AI Trading Platform built by Maliot (GitHub: Maliot100X, Twitter: @KaiNovasWarm, website: kainova.xyz).
-
-#About FLUXMINT AI Platform
-FLUXMINT AI is an autonomous AI trading platform for Solana and PumpFun tokens. It features:
-- 10 AI trading skills: PumpFun Sniper, Whale Watcher, Momentum Trader, Dip Buyer, Graduation Hunter, Market Data, Signal Generator, Risk Analysis, Wallet Tracker, News Sentiment
-- Real-time PumpFun launchpad with new, graduating, and graduated tokens
-- AI-scored BUY/SELL/HOLD signals from live PumpFun data
-- 5 trading strategies: PumpFun Sniper, Graduation Rider, Momentum Trader, Whale Copy, Dip Accumulator
-- Telegram bot integration for remote trading commands
-- Deepgram Voice Agent (that is you) for hands-free voice trading
-- Dashboard at ai-agent-platform-six.vercel.app
-- Powered by Vercel AI Gateway with DeepSeek v3.2, Supabase for persistence
-
-#Guidelines
-Keep responses to 1-2 sentences and under 150 characters unless asked for detail (max 300 chars).
-Do not use markdown formatting.
-Be direct, confident, and actionable.
-Speak in a warm, natural conversational tone.
-
-#Knowledge
-You know about PumpFun token launches, bonding curves, graduation events, and Raydium listings.
-You can discuss market caps, trading signals, entry prices, take-profit, and stop-loss levels.
-You understand Solana DeFi, DEX aggregators, meme token trading, and crypto market dynamics.
-When asked about the platform, proudly explain its features and credit Maliot as the creator.
-
-#Style
-Use plain language. No disclaimers. Be friendly but professional.
-When asked about a token, mention: name, market cap, signal, and reasoning.
-If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.`,
+              prompt: [
+                "#Role",
+                "You are FLUXMINT AI, the voice assistant for the FLUXMINT AI Trading Platform built by Maliot (GitHub: Maliot100X, Twitter: @KaiNovasWarm, website: kainova.xyz).",
+                "",
+                "#About FLUXMINT AI Platform",
+                "FLUXMINT AI is an autonomous AI trading platform for Solana and PumpFun tokens. Features include:",
+                "- 10 AI trading skills: PumpFun Sniper, Whale Watcher, Momentum Trader, Dip Buyer, Graduation Hunter, Market Data, Signal Generator, Risk Analysis, Wallet Tracker, News Sentiment",
+                "- Real-time PumpFun launchpad with new, graduating, and graduated tokens",
+                "- AI-scored BUY/SELL/HOLD signals from live PumpFun data",
+                "- 5 trading strategies: PumpFun Sniper, Graduation Rider, Momentum Trader, Whale Copy, Dip Accumulator",
+                "- Telegram bot integration for remote trading commands",
+                "- Dashboard at ai-agent-platform-six.vercel.app",
+                "",
+                "#Guidelines",
+                "Keep responses to 1-2 sentences and under 150 characters unless asked for detail (max 300 chars).",
+                "Do not use markdown formatting such as code blocks, quotes, bold, links, or italics.",
+                "Be direct, confident, and actionable.",
+                "Speak in a warm, natural conversational tone.",
+                "",
+                "#Voice-Specific Instructions",
+                "Speak in a calm, conversational tone. Your responses will be spoken aloud.",
+                "Pause briefly after questions to allow replies.",
+                "Never interrupt the user.",
+                "",
+                "#Knowledge",
+                "You know about PumpFun token launches, bonding curves, graduation events, and Raydium listings.",
+                "You can discuss market caps, trading signals, entry prices, take-profit, and stop-loss levels.",
+                "You understand Solana DeFi, DEX aggregators, meme token trading, and crypto market dynamics.",
+                "When asked about the platform, proudly explain its features and credit Maliot as the creator.",
+                "When asked who made you, say Maliot built you as part of the FLUXMINT AI platform.",
+                "",
+                "#Style",
+                "Use plain language. No disclaimers. Be friendly but professional.",
+                "When asked about a token, mention: name, market cap, signal, and reasoning.",
+              ].join("\n"),
             },
             speak: {
               provider: {
                 type: "deepgram",
-                model: "aura-stella-en",
+                model: "aura-2-iris-en",
               },
             },
-            greeting: "Hey there! Welcome to FLUXMINT AI, built by Maliot. I'm your voice trading assistant. You can check us out on Twitter at KaiNovasWarm or GitHub at Maliot100X. What would you like to know about the crypto markets today?",
+            greeting: "Hey there! Welcome to FLUXMINT AI, built by Maliot. I am your voice trading assistant. You can check us out on Twitter at KaiNovasWarm or GitHub at Maliot100X. What would you like to know about the crypto markets today?",
           },
         };
         ws.send(JSON.stringify(settings));
@@ -146,54 +142,46 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
           try {
             const msg = JSON.parse(event.data);
 
-            // User transcript
             if (msg.type === "UserStartedSpeaking") {
               setListening(true);
               setTranscript("");
             }
             if (msg.type === "ConversationText" && msg.role === "user") {
               setTranscript(msg.content || "");
-              if (msg.content) {
-                addMessage("user", msg.content);
-              }
+              if (msg.content) addMessage("user", msg.content);
             }
             if (msg.type === "UserStoppedSpeaking") {
               setListening(false);
             }
-
-            // Agent response
             if (msg.type === "AgentStartedSpeaking") {
               setSpeaking(true);
               setAgentText("");
             }
             if (msg.type === "ConversationText" && msg.role === "assistant") {
               setAgentText(msg.content || "");
-              if (msg.content) {
-                addMessage("agent", msg.content);
-              }
+              if (msg.content) addMessage("agent", msg.content);
             }
-            if (msg.type === "AgentStoppedSpeaking") {
+            if (msg.type === "AgentStoppedSpeaking" || msg.type === "AgentAudioDone") {
               setSpeaking(false);
             }
-
-            // Agent audio done
-            if (msg.type === "AgentAudioDone") {
-              setSpeaking(false);
+            if (msg.type === "SettingsApplied") {
+              console.log("Deepgram settings applied successfully");
+            }
+            if (msg.type === "Error") {
+              console.error("Deepgram error:", msg);
+              setError(`Deepgram error: ${msg.message || msg.description || JSON.stringify(msg)}`);
             }
           } catch {
-            // Not JSON, ignore
+            // Not JSON
           }
         } else if (event.data instanceof ArrayBuffer) {
-          // Audio data from agent TTS - play it
-          playAudio(event.data);
-        } else if (event.data instanceof Blob) {
-          playAudio(event.data);
+          queueAudio(event.data);
         }
       };
 
       ws.onerror = (ev) => {
         console.error("Deepgram WS error:", ev);
-        setError("WebSocket connection error. The Deepgram Voice Agent API may require Voice Agent access enabled on your account. Check console for details.");
+        setError("WebSocket connection error. Check console for details.");
         setConnected(false);
       };
 
@@ -201,12 +189,11 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
         setConnected(false);
         setListening(false);
         setSpeaking(false);
-        const reason = e.reason || (e.code === 1008 ? "Policy violation - API key may lack Voice Agent permissions" : "");
         if (e.code !== 1000) {
-          const msg = `Disconnected (code: ${e.code}). ${reason}`;
-          addMessage("system", msg);
-          if (e.code === 1008 || e.code === 1003 || e.code === 4000) {
-            setError(`Deepgram rejected connection (${e.code}): ${reason || "Ensure Voice Agent is enabled on your Deepgram account at console.deepgram.com"}`);
+          const reason = e.reason || "";
+          addMessage("system", `Disconnected (code: ${e.code}). ${reason}`);
+          if (e.code === 1008 || e.code === 1003) {
+            setError(`Deepgram rejected (${e.code}): ${reason || "Ensure Voice Agent is enabled at console.deepgram.com"}`);
           }
         }
       };
@@ -217,25 +204,16 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
     }
   }, [addMessage]);
 
-  // Improved audio: use a single growing buffer, schedule playback at the right time
-  const nextPlayTimeRef = useRef(0);
-  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Buffered audio playback - collect 250ms of chunks then play as one block
+  const queueAudio = (data: ArrayBuffer) => {
+    const int16 = new Int16Array(data);
+    audioQueueRef.current.push(int16);
 
-  const playAudio = async (data: Blob | ArrayBuffer) => {
-    try {
-      const arrayBuffer = data instanceof Blob ? await data.arrayBuffer() : data;
-      const int16 = new Int16Array(arrayBuffer);
-      audioQueueRef.current.push(int16);
-
-      // Schedule a flush after collecting chunks for 200ms
-      if (!flushTimerRef.current) {
-        flushTimerRef.current = setTimeout(() => {
-          flushTimerRef.current = null;
-          flushAudioQueue();
-        }, 200);
-      }
-    } catch {
-      // silently ignore
+    if (!flushTimerRef.current) {
+      flushTimerRef.current = setTimeout(() => {
+        flushTimerRef.current = null;
+        flushAudioQueue();
+      }, 250);
     }
   };
 
@@ -247,7 +225,6 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
     }
     const ctx = playbackContextRef.current;
 
-    // Combine all queued chunks
     const chunks = audioQueueRef.current.splice(0);
     const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
     const combined = new Int16Array(totalLength);
@@ -267,11 +244,15 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
 
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(ctx.destination);
 
-    // Schedule seamlessly after previous chunk ends
+    // Add a gain node for smooth volume
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = 1.0;
+    source.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
     const now = ctx.currentTime;
-    const startTime = Math.max(now, nextPlayTimeRef.current);
+    const startTime = Math.max(now + 0.02, nextPlayTimeRef.current);
     nextPlayTimeRef.current = startTime + audioBuffer.duration;
     source.start(startTime);
   };
@@ -279,12 +260,7 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
   const startMicrophone = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 48000,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
+        audio: { sampleRate: 48000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
       });
       mediaStreamRef.current = stream;
 
@@ -295,7 +271,6 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
-      // Analyser for volume visualization
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       source.connect(analyser);
@@ -305,15 +280,12 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
       processor.onaudioprocess = (e) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           const inputData = e.inputBuffer.getChannelData(0);
-          // Convert float32 to int16
           const int16 = new Int16Array(inputData.length);
           for (let i = 0; i < inputData.length; i++) {
             int16[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
           }
           wsRef.current.send(int16.buffer);
         }
-
-        // Update volume meter
         analyser.getByteFrequencyData(dataArray);
         const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
         setVolume(avg / 255);
@@ -321,7 +293,6 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
 
       source.connect(processor);
       processor.connect(audioContext.destination);
-
       setListening(true);
     } catch (e: any) {
       setError(`Microphone error: ${e.message}`);
@@ -329,18 +300,12 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
   };
 
   const stopMicrophone = () => {
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
-      mediaStreamRef.current = null;
-    }
+    processorRef.current?.disconnect();
+    processorRef.current = null;
+    audioContextRef.current?.close();
+    audioContextRef.current = null;
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
     setListening(false);
     setVolume(0);
   };
@@ -348,8 +313,7 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
   const toggleVoice = async () => {
     if (!connected) {
       await connectAgent();
-      // Small delay for WS to connect before starting mic
-      setTimeout(startMicrophone, 500);
+      setTimeout(startMicrophone, 600);
     } else if (listening) {
       stopMicrophone();
     } else {
@@ -359,21 +323,15 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
 
   const disconnect = () => {
     stopMicrophone();
-    if (wsRef.current) {
-      wsRef.current.close(1000);
-      wsRef.current = null;
-    }
+    if (wsRef.current) { wsRef.current.close(1000); wsRef.current = null; }
     setConnected(false);
     addMessage("system", "Disconnected.");
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopMicrophone();
-      if (wsRef.current) {
-        wsRef.current.close(1000);
-      }
+      if (wsRef.current) wsRef.current.close(1000);
     };
   }, []);
 
@@ -406,18 +364,18 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
             <div className={`w-2.5 h-2.5 rounded-full ${listening ? "bg-blue-400 animate-pulse" : "bg-slate-500"}`} />
             <span className="text-sm text-slate-300">{listening ? "Listening..." : "Mic off"}</span>
           </div>
-          <p className="text-[10px] text-slate-500 mt-1">STT: Nova-3</p>
+          <p className="text-[10px] text-slate-500 mt-1">STT: Flux General v2</p>
         </div>
         <div className="glass-card p-4">
           <div className="flex items-center gap-2">
             <div className={`w-2.5 h-2.5 rounded-full ${speaking ? "bg-purple-400 animate-pulse" : "bg-slate-500"}`} />
             <span className="text-sm text-slate-300">{speaking ? "Speaking..." : "Silent"}</span>
           </div>
-          <p className="text-[10px] text-slate-500 mt-1">TTS: Aura-2 Theia</p>
+          <p className="text-[10px] text-slate-500 mt-1">TTS: Aura-2 Iris</p>
         </div>
       </div>
 
-      {/* 3D Crypto Planet - reacts to voice state */}
+      {/* 3D Crypto Planet */}
       <CryptoPlanet speaking={speaking} listening={listening} connected={connected} />
 
       {/* Microphone Button */}
@@ -434,7 +392,6 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
                 : "bg-gradient-to-br from-slate-600 to-slate-700 shadow-lg shadow-slate-500/20"
           }`}
         >
-          {/* Volume ring */}
           {listening && (
             <motion.div
               className="absolute inset-0 rounded-full border-2 border-red-400"
@@ -449,14 +406,10 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
               transition={{ duration: 1, repeat: Infinity }}
             />
           )}
-          
-          {/* Mic icon */}
           <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             {listening ? (
-              // Stop icon
               <rect x="6" y="6" width="12" height="12" rx="2" />
             ) : (
-              // Microphone icon
               <>
                 <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
                 <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
@@ -466,18 +419,11 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
         </motion.button>
 
         <p className="text-sm text-slate-400 mt-4">
-          {!connected
-            ? "Click to connect and start talking"
-            : listening
-              ? "Listening... Click to stop"
-              : "Click to start talking"}
+          {!connected ? "Click to connect and start talking" : listening ? "Listening... Click to stop" : "Click to start talking"}
         </p>
 
         {connected && (
-          <button
-            onClick={disconnect}
-            className="mt-2 px-4 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs hover:bg-red-500/20 transition-colors"
-          >
+          <button onClick={disconnect} className="mt-2 px-4 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs hover:bg-red-500/20 transition-colors">
             Disconnect
           </button>
         )}
@@ -540,7 +486,7 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="bg-surface-800/50 rounded-lg p-3">
             <p className="text-primary-400 font-medium">Speech-to-Text</p>
-            <p className="text-slate-500 mt-0.5">Deepgram Nova-3</p>
+            <p className="text-slate-500 mt-0.5">Deepgram Flux v2</p>
           </div>
           <div className="bg-surface-800/50 rounded-lg p-3">
             <p className="text-primary-400 font-medium">AI Brain</p>
@@ -548,7 +494,7 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
           </div>
           <div className="bg-surface-800/50 rounded-lg p-3">
             <p className="text-primary-400 font-medium">Text-to-Speech</p>
-            <p className="text-slate-500 mt-0.5">Aura-2 Theia</p>
+            <p className="text-slate-500 mt-0.5">Aura-2 Iris</p>
           </div>
           <div className="bg-surface-800/50 rounded-lg p-3">
             <p className="text-primary-400 font-medium">Latency</p>

@@ -1,34 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { apiFetch, apiPost } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import PerformanceChart from "@/components/PerformanceChart";
 
 export default function StrategiesPage() {
   const [portfolio, setPortfolio] = useState<any>(null);
   const [positions, setPositions] = useState<any>({ open: [], closed: [] });
   const [agents, setAgents] = useState<any[]>([]);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     apiFetch("/api/strategies/portfolio").then(setPortfolio).catch(() => {});
     apiFetch("/api/strategies/positions").then(setPositions).catch(() => {});
     apiFetch("/api/agents").then((d) => setAgents(d.agents || [])).catch(() => {});
-  };
+    setLastRefresh(new Date());
+  }, []);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 15000);
+    const interval = setInterval(loadData, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadData]);
 
   return (
     <div className="space-y-6">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
-          Strategies & Positions
-        </h1>
-        <p className="text-slate-400 mt-1">Live portfolio from agent trading activity</p>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
+            Strategies & Positions
+          </h1>
+          <p className="text-slate-400 mt-1">Live portfolio from agent trading activity</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-slate-600">
+            Last: {lastRefresh.toLocaleTimeString()} | Auto: 5min
+          </span>
+          <button onClick={loadData} className="px-3 py-2 bg-primary-500/10 text-primary-400 rounded-xl text-xs hover:bg-primary-500/20 transition-colors font-medium">
+            Refresh Now
+          </button>
+        </div>
       </motion.div>
 
       {/* Portfolio Summary */}

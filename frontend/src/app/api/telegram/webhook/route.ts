@@ -3,6 +3,7 @@ import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8353945339:AAGuhY9vYjzfDMv245NB7lGt6J-lLRcQAwQ";
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || "-1002926556738";
+const DEEPGRAM_KEY = process.env.DEEPGRAM_API_KEY || "6c18a51c829ac16237a956c786e23e1368570311";
 const VERCEL_AI_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 const SITE_URL = "https://ai-agent-platform-six.vercel.app";
 
@@ -21,50 +22,33 @@ async function sendMessage(chatId: number | string, text: string) {
   });
 }
 
-/**
- * Generate TTS audio via Deepgram REST API and send as Telegram voice message.
- * Uses Deepgram's /v1/speak endpoint with OGG Opus output for Telegram compatibility.
- */
 async function sendVoiceMessage(chatId: number | string, text: string) {
-  const dgKey = process.env.DEEPGRAM_API_KEY;
-  if (!dgKey || !BOT_TOKEN) return;
-
+  if (!DEEPGRAM_KEY || !BOT_TOKEN) {
+    await sendMessage(chatId, text);
+    return;
+  }
   try {
-    // Step 1: Generate audio via Deepgram TTS REST API
     const ttsResp = await fetch(
-      "https://api.deepgram.com/v1/speak?model=aura-stella-en&encoding=opus&container=ogg",
+      "https://api.deepgram.com/v1/speak?model=aura-2-iris-en&encoding=opus&container=ogg",
       {
         method: "POST",
-        headers: {
-          Authorization: `Token ${dgKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Token ${DEEPGRAM_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
         signal: AbortSignal.timeout(15000),
       }
     );
-
     if (!ttsResp.ok) {
-      // Fallback: send as text
       await sendMessage(chatId, text);
       return;
     }
-
     const audioBuffer = await ttsResp.arrayBuffer();
-
-    // Step 2: Send as voice message to Telegram using multipart/form-data
     const blob = new Blob([audioBuffer], { type: "audio/ogg" });
     const formData = new FormData();
     formData.append("chat_id", String(chatId));
     formData.append("voice", blob, "voice.ogg");
     formData.append("caption", text.length > 200 ? text.slice(0, 200) + "..." : text);
-
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVoice`, {
-      method: "POST",
-      body: formData,
-    });
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVoice`, { method: "POST", body: formData });
   } catch {
-    // Fallback to text on error
     await sendMessage(chatId, text);
   }
 }
@@ -87,29 +71,34 @@ async function handleCommand(text: string): Promise<string> {
 
   if (cmd === "/start" || cmd === "/help") {
     return [
-      "*FLUXMINT AI Trading Platform*",
+      "FLUXMINT AI Trading Platform",
+      "━━━━━━━━━━━━━━━━━━━━━━━━",
       "",
-      "----------- *TRADING* -----------",
-      "/market - Global crypto market data",
-      "/trending - Trending Solana tokens",
-      "/pumpfun - Latest PumpFun launches",
-      "/signals - AI-scored PumpFun signals",
+      "TRADING",
+      "  /market - Global crypto market data",
+      "  /trending - Trending Solana tokens",
+      "  /pumpfun - Latest PumpFun launches",
+      "  /signals - AI-scored PumpFun signals",
       "",
-      "----------- *AGENTS* -----------",
-      "/agents - List dashboard agents",
-      "/pullagent <name> - Pull agent details",
+      "AGENTS",
+      "  /agents - List all dashboard agents",
+      "  /pullagent <name> - Pull agent details + holdings",
       "",
-      "----------- *VOICE & AI* -----------",
-      "/tts <question> - AI voice reply (audio message)",
-      "/ai <question> - Ask the AI (text reply)",
-      "/status - System health & integrations",
+      "VOICE & AI",
+      "  /tts <question> - AI voice reply (audio message)",
+      "  /ai <question> - Ask the AI (text reply)",
+      "  /status - System health & integrations",
       "",
-      "----------- *LINKS* -----------",
-      `[Dashboard](${SITE_URL}) | [Skills](${SITE_URL}/skills)`,
-      `[Launchpad](${SITE_URL}/launchpad) | [Signals](${SITE_URL}/signals)`,
-      "[Website](https://kainova.xyz) | [Twitter](https://x.com/KaiNovasWarm)",
+      "LINKS",
+      `  Dashboard: ${SITE_URL}`,
+      `  Launchpad: ${SITE_URL}/launchpad`,
+      `  Skills: ${SITE_URL}/skills`,
+      "  Website: https://kainova.xyz",
+      "  Twitter: https://x.com/KaiNovasWarm",
+      "  GitHub: https://github.com/Maliot100X",
       "",
-      "_Type any message to chat with AI_",
+      "━━━━━━━━━━━━━━━━━━━━━━━━",
+      "Built by Maliot | Type any message to chat with AI",
     ].join("\n");
   }
 
@@ -128,6 +117,7 @@ async function handleCommand(text: string): Promise<string> {
         `Provider: ${d.provider}`,
         `Model: ${d.model}`,
         `Skills: ${d.skills}`,
+        `Storage: ${d.storage || "unknown"}`,
         `Version: ${d.version}`,
         "",
         "*Integrations:*",
@@ -180,6 +170,18 @@ async function handleCommand(text: string): Promise<string> {
 
   if (cmd === "/signals") {
     try {
+      // First try agent logs (real trades)
+      const logResp = await fetch(`${SITE_URL}/api/logs?limit=10`, { signal: AbortSignal.timeout(8000) });
+      const logData = await logResp.json();
+      if (logData.logs?.length > 0) {
+        const lines = logData.logs.slice(0, 8).map((l: any, i: number) => {
+          const action = (l.action || "signal").toUpperCase();
+          const pnl = l.pnl ? ` (${Number(l.pnl) >= 0 ? "+" : ""}${Number(l.pnl).toFixed(1)}%)` : "";
+          return `${i + 1}. *${action}* ${l.symbol}${pnl}\n   MC: $${Number(l.market_cap || 0).toLocaleString()}\n   ${l.reasoning?.slice(0, 60) || ""}`;
+        });
+        return `*Agent Trading Signals*\n\n${lines.join("\n\n")}\n\n[Dashboard](${SITE_URL}/signals)`;
+      }
+      // Fallback to PumpFun signals
       const resp = await fetch(`${SITE_URL}/api/signals`, { signal: AbortSignal.timeout(10000) });
       const data = await resp.json();
       const sigs = (data.signals || []).filter((s: any) => s.signal_type === "buy").slice(0, 6);
@@ -198,7 +200,9 @@ async function handleCommand(text: string): Promise<string> {
     }
     const lines = agents.map((a: any, i: number) => {
       const status = a.status === "running" ? "RUNNING" : "IDLE";
-      return `${i + 1}. *${a.name}* [${status}]\n   Skills: ${(a.skills || []).join(", ")}\n   Provider: ${a.provider}`;
+      const holdingsCount = (a.holdings || []).length;
+      const balance = Number(a.balance || 0).toLocaleString();
+      return `${i + 1}. *${a.name}* [${status}]\n   Balance: $${balance} | Holdings: ${holdingsCount}\n   Skills: ${(a.skills || []).join(", ")}\n   Trades: ${a.trades_executed || 0}`;
     });
     return `*Dashboard Agents* (${agents.length})\n\n${lines.join("\n\n")}\n\n[Manage](${SITE_URL}/agents)`;
   }
@@ -215,20 +219,31 @@ async function handleCommand(text: string): Promise<string> {
       return `Agent "${searchName}" not found.\n\nAvailable: ${names || "none"}`;
     }
 
+    const holdings = (agent.holdings || []);
+    const holdingLines = holdings.map((h: any) => {
+      const pnl = Number(h.pnl_percent || 0);
+      return `  ${h.symbol}: $${h.amount || 0} | MC: $${Number(h.current_mc || h.entry_mc || 0).toLocaleString()} | P&L: ${pnl >= 0 ? "+" : ""}${pnl.toFixed(1)}%`;
+    });
+
     return [
       `*Agent: ${agent.name}*`,
       "",
       `Status: ${agent.status === "running" ? "RUNNING" : "IDLE"}`,
+      `Balance: $${Number(agent.balance || 0).toLocaleString()}`,
       `Provider: ${agent.provider}`,
       `Model: ${agent.model || "deepseek/deepseek-v3.2"}`,
       `Max Tokens: ${agent.max_tokens || 3}`,
       `Skills: ${(agent.skills || []).join(", ")}`,
       `Signals: ${agent.signals_generated || 0}`,
       `Trades: ${agent.trades_executed || 0}`,
+      "",
+      holdings.length > 0 ? `*Holdings* (${holdings.length}):` : "No holdings",
+      ...holdingLines,
+      "",
       `Created: ${agent.created_at ? new Date(agent.created_at).toLocaleDateString() : "N/A"}`,
       agent.started_at ? `Started: ${new Date(agent.started_at).toLocaleString()}` : "",
       "",
-      `[View](${SITE_URL}/agents)`,
+      `[View on Dashboard](${SITE_URL}/agents)`,
     ].filter(Boolean).join("\n");
   }
 
@@ -243,7 +258,7 @@ async function handleCommand(text: string): Promise<string> {
         body: JSON.stringify({
           model: process.env.MODEL_NAME || "deepseek/deepseek-v3.2",
           messages: [
-            { role: "system", content: "You are FLUXMINT AI, a Solana trading assistant." },
+            { role: "system", content: "You are FLUXMINT AI, a Solana trading assistant. Be brief and actionable." },
             { role: "user", content: question },
           ],
           temperature: 0.7, max_tokens: 1024,
@@ -265,7 +280,7 @@ async function handleCommand(text: string): Promise<string> {
         body: JSON.stringify({
           model: process.env.MODEL_NAME || "deepseek/deepseek-v3.2",
           messages: [
-            { role: "system", content: "You are FLUXMINT AI, a Solana/PumpFun trading assistant." },
+            { role: "system", content: "You are FLUXMINT AI, a Solana/PumpFun trading assistant. Be brief." },
             { role: "user", content: text },
           ],
           temperature: 0.7, max_tokens: 1024,
@@ -288,15 +303,12 @@ export async function POST(request: NextRequest) {
       const text = message.text.trim();
       const chatId = message.chat.id;
 
-      // /tts command: get AI response then send as voice message
       if (text.toLowerCase().startsWith("/tts ")) {
         const question = text.slice(5).trim();
         if (!question) {
           await sendMessage(chatId, "Usage: /tts <your question>\nExample: /tts what are the best crypto signals today");
         } else {
-          // Get AI text response first
           const aiResponse = await handleCommand(`/ai ${question}`);
-          // Send as voice message via Deepgram TTS
           await sendVoiceMessage(chatId, aiResponse);
         }
       } else {

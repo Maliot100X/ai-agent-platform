@@ -14,15 +14,34 @@ export async function GET() {
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: "#020617",
-          backgroundImage: "radial-gradient(circle at 25% 25%, #0ea5e920 0%, transparent 50%), radial-gradient(circle at 75% 75%, #8b5cf620 0%, transparent 50%)",
+          backgroundImage: "radial-gradient(circle at 20% 30%, #0ea5e930 0%, transparent 40%), radial-gradient(circle at 80% 70%, #8b5cf630 0%, transparent 40%), radial-gradient(circle at 50% 50%, #10b98120 0%, transparent 50%)",
         }}
       >
+        {/* Top badge */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            padding: "8px 24px",
+            borderRadius: "999px",
+            border: "1px solid #1e293b",
+            backgroundColor: "#0f172a80",
+            marginBottom: "24px",
+            fontSize: "16px",
+            color: "#94a3b8",
+          }}
+        >
+          Built by Maliot | @KaiNovasWarm
+        </div>
+
+        {/* Main title */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: "20px",
-            marginBottom: "30px",
+            marginBottom: "20px",
           }}
         >
           <div
@@ -42,33 +61,34 @@ export async function GET() {
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span
               style={{
-                fontSize: "60px",
+                fontSize: "56px",
                 fontWeight: "bold",
-                background: "linear-gradient(90deg, #0ea5e9, #8b5cf6)",
+                background: "linear-gradient(90deg, #0ea5e9, #8b5cf6, #10b981)",
                 backgroundClip: "text",
                 color: "transparent",
               }}
             >
               FLUXMINT AI
             </span>
-            <span style={{ fontSize: "24px", color: "#94a3b8" }}>
-              Trading Platform v2.0
+            <span style={{ fontSize: "22px", color: "#64748b" }}>
+              Autonomous AI Trading Platform for Solana
             </span>
           </div>
         </div>
 
+        {/* Feature cards */}
         <div
           style={{
             display: "flex",
-            gap: "40px",
-            marginTop: "20px",
+            gap: "16px",
+            marginTop: "16px",
           }}
         >
           {[
-            { label: "PumpFun Sniper", icon: "target" },
-            { label: "Whale Watcher", icon: "eye" },
-            { label: "Momentum Trader", icon: "trending" },
-            { label: "10+ Skills", icon: "skills" },
+            { label: "10 AI Skills", detail: "Sniper, Whale, Momentum" },
+            { label: "PumpFun Live", detail: "Real-time launches" },
+            { label: "Auto Trading", detail: "Buy/Sell with P&L" },
+            { label: "Voice Agent", detail: "Deepgram powered" },
           ].map((item) => (
             <div
               key={item.label}
@@ -76,33 +96,37 @@ export async function GET() {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                padding: "16px 24px",
+                padding: "16px 28px",
                 borderRadius: "16px",
                 border: "1px solid #1e293b",
-                backgroundColor: "#0f172a80",
+                backgroundColor: "#0f172a",
               }}
             >
-              <span style={{ fontSize: "18px", color: "#0ea5e9", fontWeight: "600" }}>
+              <span style={{ fontSize: "18px", color: "#0ea5e9", fontWeight: "700" }}>
                 {item.label}
+              </span>
+              <span style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
+                {item.detail}
               </span>
             </div>
           ))}
         </div>
 
+        {/* Bottom links */}
         <div
           style={{
             display: "flex",
             gap: "20px",
-            marginTop: "40px",
-            fontSize: "16px",
-            color: "#64748b",
+            marginTop: "32px",
+            fontSize: "15px",
+            color: "#475569",
           }}
         >
           <span>kainova.xyz</span>
           <span>|</span>
-          <span>@KaiNovasWarm</span>
+          <span>github.com/Maliot100X</span>
           <span>|</span>
-          <span>Powered by DeepSeek v3.2</span>
+          <span>Powered by Supabase + Vercel</span>
         </div>
       </div>
     ),
