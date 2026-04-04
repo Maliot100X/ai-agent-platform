@@ -1,7 +1,6 @@
 -- FLUXMINT AI Agent Platform - Supabase Schema
--- Run this in your Supabase SQL Editor to set up the tables.
+-- Run this ENTIRE content in Supabase SQL Editor (Dashboard > SQL Editor > New Query)
 
--- Agents table
 CREATE TABLE IF NOT EXISTS agents (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -18,7 +17,6 @@ CREATE TABLE IF NOT EXISTS agents (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Active strategies table
 CREATE TABLE IF NOT EXISTS strategies (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -30,21 +28,49 @@ CREATE TABLE IF NOT EXISTS strategies (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable Row Level Security but allow public access (for now)
+CREATE TABLE IF NOT EXISTS agent_logs (
+  id BIGSERIAL PRIMARY KEY,
+  agent_id TEXT REFERENCES agents(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  symbol TEXT,
+  mint TEXT,
+  price NUMERIC,
+  amount NUMERIC,
+  market_cap NUMERIC,
+  signal_type TEXT,
+  strength INTEGER,
+  reasoning TEXT,
+  pnl NUMERIC,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE strategies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
--- Public read/write policies (for MVP - tighten later with auth)
-CREATE POLICY "Allow public read agents" ON agents FOR SELECT USING (true);
-CREATE POLICY "Allow public insert agents" ON agents FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update agents" ON agents FOR UPDATE USING (true);
-CREATE POLICY "Allow public delete agents" ON agents FOR DELETE USING (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'agents' AND policyname = 'allow_all_agents') THEN
+    CREATE POLICY allow_all_agents ON agents FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'strategies' AND policyname = 'allow_all_strategies') THEN
+    CREATE POLICY allow_all_strategies ON strategies FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'agent_logs' AND policyname = 'allow_all_logs') THEN
+    CREATE POLICY allow_all_logs ON agent_logs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'settings' AND policyname = 'allow_all_settings') THEN
+    CREATE POLICY allow_all_settings ON settings FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
-CREATE POLICY "Allow public read strategies" ON strategies FOR SELECT USING (true);
-CREATE POLICY "Allow public insert strategies" ON strategies FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow public update strategies" ON strategies FOR UPDATE USING (true);
-CREATE POLICY "Allow public delete strategies" ON strategies FOR DELETE USING (true);
-
--- Index for faster queries
 CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
 CREATE INDEX IF NOT EXISTS idx_strategies_status ON strategies(status);
+CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_logs(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_logs_created ON agent_logs(created_at DESC);
