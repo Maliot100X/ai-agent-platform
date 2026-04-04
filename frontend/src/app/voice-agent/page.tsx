@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import dynamic from "next/dynamic";
 import { apiFetch } from "@/lib/api";
+
+const CryptoPlanet = dynamic(() => import("@/components/CryptoPlanet"), { ssr: false });
 
 interface Message {
   role: "user" | "agent" | "system";
@@ -92,34 +95,47 @@ export default function VoiceAgentPage() {
             },
             think: {
               provider: {
-                type: "open_ai",
-                model: "gpt-4o-mini",
+                type: "anthropic",
+                model: "claude-sonnet-4-6",
               },
               prompt: `#Role
-You are FLUXMINT AI, a crypto trading voice assistant specializing in Solana and PumpFun tokens.
+You are FLUXMINT AI, the voice assistant of the FLUXMINT AI Trading Platform built by Maliot (GitHub: Maliot100X, Twitter: @KaiNovasWarm, website: kainova.xyz).
+
+#About FLUXMINT AI Platform
+FLUXMINT AI is an autonomous AI trading platform for Solana and PumpFun tokens. It features:
+- 10 AI trading skills: PumpFun Sniper, Whale Watcher, Momentum Trader, Dip Buyer, Graduation Hunter, Market Data, Signal Generator, Risk Analysis, Wallet Tracker, News Sentiment
+- Real-time PumpFun launchpad with new, graduating, and graduated tokens
+- AI-scored BUY/SELL/HOLD signals from live PumpFun data
+- 5 trading strategies: PumpFun Sniper, Graduation Rider, Momentum Trader, Whale Copy, Dip Accumulator
+- Telegram bot integration for remote trading commands
+- Deepgram Voice Agent (that is you) for hands-free voice trading
+- Dashboard at ai-agent-platform-six.vercel.app
+- Powered by Vercel AI Gateway with DeepSeek v3.2, Supabase for persistence
 
 #Guidelines
 Keep responses to 1-2 sentences and under 150 characters unless asked for detail (max 300 chars).
-Do not use markdown formatting such as code blocks, quotes, bold, links, or italics.
+Do not use markdown formatting.
 Be direct, confident, and actionable.
-Speak in a calm, conversational tone.
+Speak in a warm, natural conversational tone.
 
 #Knowledge
 You know about PumpFun token launches, bonding curves, graduation events, and Raydium listings.
-You can discuss market caps, trading signals (BUY/SELL/HOLD), entry prices, take-profit, and stop-loss levels.
-You understand Solana DeFi, DEX aggregators, and meme token trading.
+You can discuss market caps, trading signals, entry prices, take-profit, and stop-loss levels.
+You understand Solana DeFi, DEX aggregators, meme token trading, and crypto market dynamics.
+When asked about the platform, proudly explain its features and credit Maliot as the creator.
 
 #Style
-Use plain language. No disclaimers. Mirror the user energy level.
-When asked about a token, mention: name, market cap, signal, and reasoning.`,
+Use plain language. No disclaimers. Be friendly but professional.
+When asked about a token, mention: name, market cap, signal, and reasoning.
+If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.`,
             },
             speak: {
               provider: {
                 type: "deepgram",
-                model: "aura-2-iris-en",
+                model: "aura-2-stella-en",
               },
             },
-            greeting: "Hey, FLUXMINT AI here. What do you want to know about the markets today?",
+            greeting: "Hey there! Welcome to FLUXMINT AI, built by Maliot. I'm your voice trading assistant. You can check us out on Twitter at KaiNovasWarm or GitHub at Maliot100X. What would you like to know about the crypto markets today?",
           },
         };
         ws.send(JSON.stringify(settings));
@@ -406,6 +422,9 @@ When asked about a token, mention: name, market cap, signal, and reasoning.`,
           <p className="text-[10px] text-slate-500 mt-1">TTS: Aura-2 Theia</p>
         </div>
       </div>
+
+      {/* 3D Crypto Planet - reacts to voice state */}
+      <CryptoPlanet speaking={speaking} listening={listening} connected={connected} />
 
       {/* Microphone Button */}
       <div className="flex flex-col items-center py-8">
