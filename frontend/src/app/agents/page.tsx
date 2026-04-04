@@ -2,18 +2,32 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  getAgents,
-  createAgent,
-  startAgent,
-  stopAgent,
-  deleteAgent,
-  AVAILABLE_SKILLS,
-  type Agent,
-} from "@/lib/agentStore";
+import { apiFetch, apiPost } from "@/lib/api";
+
+interface AgentSkill {
+  id: string;
+  name: string;
+  desc: string;
+}
+
+interface Agent {
+  agent_id: string;
+  name: string;
+  goal: string;
+  provider: string;
+  status: string;
+  skills: string[];
+  skill_details: AgentSkill[];
+  max_tokens: number;
+  signals_generated: number;
+  trades_executed: number;
+  created_at: string;
+  started_at?: string;
+}
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -22,41 +36,40 @@ export default function AgentsPage() {
     skills: ["momentum_trader", "signal_generation"] as string[],
   });
 
-  const loadAgents = useCallback(() => {
-    setAgents(getAgents());
+  const loadAgents = useCallback(async () => {
+    try {
+      const data = await apiFetch("/api/agents");
+      setAgents(data.agents || []);
+      if (data.skills) setSkills(data.skills);
+    } catch {}
   }, []);
 
   useEffect(() => {
     loadAgents();
-    const interval = setInterval(loadAgents, 5000);
+    const interval = setInterval(loadAgents, 10000);
     return () => clearInterval(interval);
   }, [loadAgents]);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!form.name) return;
-    createAgent({
-      name: form.name,
-      goal: form.goal,
-      provider: form.provider,
-      skills: form.skills,
-    });
+    await apiPost("/api/agents", form);
     setShowCreate(false);
     setForm({ name: "", goal: "", provider: "vercel", skills: ["momentum_trader", "signal_generation"] });
     loadAgents();
   };
 
-  const handleStart = (id: string) => {
-    startAgent(id);
+  const handleStart = async (id: string) => {
+    await apiPost("/api/agents", { action: "start", agent_id: id });
     loadAgents();
   };
 
-  const handleStop = (id: string) => {
-    stopAgent(id);
+  const handleStop = async (id: string) => {
+    await apiPost("/api/agents", { action: "stop", agent_id: id });
     loadAgents();
   };
 
-  const handleDelete = (id: string) => {
-    deleteAgent(id);
+  const handleDelete = async (id: string) => {
+    await apiPost("/api/agents", { action: "delete", agent_id: id });
     loadAgents();
   };
 
@@ -75,7 +88,9 @@ export default function AgentsPage() {
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Agents</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
+            Agents
+          </h1>
           <p className="text-slate-400 mt-1">
             {agents.length} agents created, {runningCount} running
           </p>
@@ -125,10 +140,9 @@ export default function AgentsPage() {
               </select>
             </div>
 
-            {/* Skill Selection */}
             <h4 className="text-sm font-medium text-slate-300 mb-2">Select Skills:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
-              {AVAILABLE_SKILLS.map((skill) => (
+              {skills.map((skill) => (
                 <button
                   key={skill.id}
                   onClick={() => toggleSkill(skill.id)}
@@ -196,7 +210,6 @@ export default function AgentsPage() {
               </div>
               <p className="text-sm text-slate-400 mb-3">{agent.goal}</p>
               
-              {/* Skills */}
               <div className="flex flex-wrap gap-1 mb-3">
                 {(agent.skill_details || []).map((s) => (
                   <span key={s.id} className="text-[10px] px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-300">
@@ -205,28 +218,12 @@ export default function AgentsPage() {
                 ))}
               </div>
 
-              {/* Stats */}
               <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
                 <span>Provider: {agent.provider}</span>
                 <span>Max Tokens: {agent.max_tokens}</span>
                 <span>Signals: {agent.signals_generated}</span>
                 <span>Trades: {agent.trades_executed}</span>
               </div>
-
-              {/* Holdings */}
-              {agent.holdings.length > 0 && (
-                <div className="mb-3 p-2 bg-surface-800/50 rounded-lg">
-                  <p className="text-[10px] text-slate-500 mb-1">Current Holdings:</p>
-                  {agent.holdings.map((h) => (
-                    <div key={h.address} className="flex justify-between text-xs">
-                      <span className="text-white">{h.symbol}</span>
-                      <span className={h.pnl >= 0 ? "text-emerald-400" : "text-red-400"}>
-                        {h.pnl >= 0 ? "+" : ""}{h.pnl_percent.toFixed(1)}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
               
               <div className="flex gap-2">
                 {agent.status !== "running" ? (

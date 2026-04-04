@@ -9,7 +9,6 @@ import ActivityTimeline from "@/components/ActivityTimeline";
 import PerformanceChart from "@/components/PerformanceChart";
 import { apiFetch } from "@/lib/api";
 import { useWebSocket } from "@/lib/useWebSocket";
-import { getAgentCount, getRunningAgentCount } from "@/lib/agentStore";
 
 const NetworkGraph = dynamic(() => import("@/components/NetworkGraph"), { ssr: false });
 
@@ -18,23 +17,25 @@ export default function OverviewPage() {
   const [portfolio, setPortfolio] = useState<any>(null);
   const [pumpfunTokens, setPumpfunTokens] = useState<any[]>([]);
   const [marketData, setMarketData] = useState<any>(null);
+  const [agentData, setAgentData] = useState<any>({ agents: [] });
   const { connected, signals, actions } = useWebSocket();
 
   useEffect(() => {
     apiFetch("/api/health").then(setHealth).catch(() => {});
     apiFetch("/api/strategies/portfolio").then(setPortfolio).catch(() => {});
-    apiFetch("/api/trading/pumpfun/launches?limit=6").then((d) => setPumpfunTokens(d.launches || [])).catch(() => {});
+    apiFetch("/api/pumpfun/coins?limit=6&sort=market_cap&order=DESC").then((d) => setPumpfunTokens(d.tokens || [])).catch(() => {});
     apiFetch("/api/trading/summary").then(setMarketData).catch(() => {});
+    apiFetch("/api/agents").then(setAgentData).catch(() => {});
 
     const interval = setInterval(() => {
       apiFetch("/api/health").then(setHealth).catch(() => {});
-      apiFetch("/api/trading/pumpfun/launches?limit=6").then((d) => setPumpfunTokens(d.launches || [])).catch(() => {});
+      apiFetch("/api/pumpfun/coins?limit=6&sort=market_cap&order=DESC").then((d) => setPumpfunTokens(d.tokens || [])).catch(() => {});
     }, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const agentCount = typeof window !== "undefined" ? getAgentCount() : 0;
-  const runningCount = typeof window !== "undefined" ? getRunningAgentCount() : 0;
+  const agents = agentData?.agents || [];
+  const runningCount = agents.filter((a: any) => a.status === "running").length;
 
   return (
     <div className="space-y-6">
@@ -60,13 +61,13 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Active Agents"
-          value={`${runningCount}/${agentCount}`}
+          value={`${runningCount}/${agents.length}`}
           subtitle="Running / Total created"
           color="blue"
         />
         <StatCard
           title="PumpFun Signals"
-          value={signals.filter((s: any) => s.source === "pumpfun").length}
+          value={signals.filter((s: any) => s.source === "pumpfun").length || signals.length}
           subtitle="Real-time from PumpFun API"
           color="purple"
         />
@@ -103,7 +104,7 @@ export default function OverviewPage() {
                     <img
                       src={t.image_uri}
                       alt={t.symbol}
-                      className="w-8 h-8 rounded-lg object-cover"
+                      className="w-10 h-10 rounded-lg object-cover"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   )}
@@ -117,9 +118,10 @@ export default function OverviewPage() {
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500 truncate">{t.name}</p>
+                    <p className="text-[10px] text-slate-600 font-mono truncate mt-0.5">{t.mint}</p>
                   </div>
                   <span className="text-xs text-white font-medium">
-                    ${(t.market_cap || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    ${(t.usd_market_cap || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </span>
                 </div>
               </a>

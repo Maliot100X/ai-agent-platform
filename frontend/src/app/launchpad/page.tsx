@@ -15,20 +15,19 @@ export default function LaunchpadPage() {
     setLoading(true);
     try {
       let sort = "created_timestamp";
-      let params = "includeNsfw=false";
+      let params = "";
       if (t === "graduating") {
         sort = "market_cap";
-        params += "&complete=false";
+        params = "&complete=false";
       } else if (t === "graduated") {
         sort = "market_cap";
-        params += "&complete=true";
+        params = "&complete=true";
       }
-      const resp = await fetch(
-        `https://frontend-api-v3.pump.fun/coins?offset=0&limit=30&sort=${sort}&order=DESC&${params}`
+      // Use our proxy API to avoid CORS
+      const data = await apiFetch(
+        `/api/pumpfun/coins?offset=0&limit=30&sort=${sort}&order=DESC${params}`
       );
-      if (!resp.ok) throw new Error("Failed");
-      const data = await resp.json();
-      setTokens(Array.isArray(data) ? data : []);
+      setTokens(data.tokens || []);
     } catch {
       setTokens([]);
     }
@@ -44,8 +43,10 @@ export default function LaunchpadPage() {
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <h1 className="text-3xl font-bold text-white">PumpFun Launchpad</h1>
-        <p className="text-slate-400 mt-1">Real-time Solana meme token launches</p>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
+          PumpFun Launchpad
+        </h1>
+        <p className="text-slate-400 mt-1">Real-time Solana meme token launches from pump.fun</p>
       </motion.div>
 
       {/* Tabs */}
@@ -74,11 +75,12 @@ export default function LaunchpadPage() {
       {/* Token Grid */}
       {loading ? (
         <div className="glass-card p-8 text-center">
+          <div className="inline-block w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mb-2" />
           <p className="text-slate-400">Loading PumpFun tokens...</p>
         </div>
       ) : tokens.length === 0 ? (
         <div className="glass-card p-8 text-center">
-          <p className="text-slate-400">No tokens found.</p>
+          <p className="text-slate-400">No tokens found. Try refreshing.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -94,7 +96,7 @@ export default function LaunchpadPage() {
                   <img
                     src={t.image_uri}
                     alt={t.symbol}
-                    className="w-10 h-10 rounded-lg object-cover"
+                    className="w-12 h-12 rounded-lg object-cover"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 )}
@@ -111,19 +113,46 @@ export default function LaunchpadPage() {
                 </div>
               </div>
 
+              {/* Contract Address */}
+              <div className="mb-3">
+                <p className="text-[10px] text-slate-600 mb-0.5">Contract Address</p>
+                <p className="text-[11px] text-slate-400 font-mono truncate select-all">{t.mint}</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                 <div>
                   <p className="text-slate-500">Market Cap</p>
-                  <p className="text-white font-medium">${(t.usd_market_cap || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-white font-medium">
+                    ${(t.usd_market_cap || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
                 </div>
                 <div>
                   <p className="text-slate-500">Replies</p>
                   <p className="text-white">{t.reply_count || 0}</p>
                 </div>
+                {t.virtual_sol_reserves && (
+                  <div>
+                    <p className="text-slate-500">SOL Reserves</p>
+                    <p className="text-white">{(t.virtual_sol_reserves / 1e9).toFixed(2)} SOL</p>
+                  </div>
+                )}
+                {t.virtual_token_reserves && (
+                  <div>
+                    <p className="text-slate-500">Token Reserves</p>
+                    <p className="text-white">{(t.virtual_token_reserves / 1e6).toFixed(0)}M</p>
+                  </div>
+                )}
               </div>
 
               {t.description && (
-                <p className="text-[11px] text-slate-500 line-clamp-2 mb-2">{t.description.slice(0, 120)}</p>
+                <p className="text-[11px] text-slate-500 line-clamp-2 mb-3">{t.description.slice(0, 120)}</p>
+              )}
+
+              {/* Creator */}
+              {t.creator && (
+                <p className="text-[10px] text-slate-600 mb-2 truncate">
+                  Creator: <span className="text-slate-500 font-mono">{t.creator}</span>
+                </p>
               )}
 
               <div className="flex gap-2">
@@ -133,7 +162,15 @@ export default function LaunchpadPage() {
                   rel="noopener noreferrer"
                   className="flex-1 text-center px-2 py-1.5 bg-primary-500/10 text-primary-400 rounded-lg text-xs hover:bg-primary-500/20 transition-colors"
                 >
-                  View on PumpFun
+                  PumpFun
+                </a>
+                <a
+                  href={`https://dexscreener.com/solana/${t.mint}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1.5 bg-surface-700 text-slate-400 rounded-lg text-xs hover:text-white transition-colors"
+                >
+                  DexScreener
                 </a>
                 <a
                   href={`https://solscan.io/token/${t.mint}`}
