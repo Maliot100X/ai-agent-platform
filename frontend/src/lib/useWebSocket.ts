@@ -1,57 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { getWebSocketUrl } from "./api";
+import { useEffect, useState, useCallback } from "react";
+import { apiFetch } from "./api";
 
-export interface WSMessage {
-  type: "signal" | "agent_action" | "log" | "metric";
-  data: any;
-}
-
+/**
+ * Replaces WebSocket with polling for Vercel serverless.
+ * Polls /api/signals every 30 seconds for live data.
+ */
 export function useWebSocket() {
-  const [messages, setMessages] = useState<WSMessage[]>([]);
-  const [connected, setConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const [signals, setSignals] = useState<any[]>([]);
+  const [actions, setActions] = useState<any[]>([]);
+  const [connected, setConnected] = useState(true);
 
-  const connect = useCallback(() => {
+  const poll = useCallback(async () => {
     try {
-      const ws = new WebSocket(getWebSocketUrl());
-
-      ws.onopen = () => {
-        setConnected(true);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg: WSMessage = JSON.parse(event.data);
-          setMessages((prev) => [...prev.slice(-200), msg]);
-        } catch {}
-      };
-
-      ws.onclose = () => {
-        setConnected(false);
-        // Reconnect after 3s
-        setTimeout(connect, 3000);
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-
-      wsRef.current = ws;
-    } catch {}
+      const data = await apiFetch("/api/signals");
+      if (data.signals?.length) {
+        setSignals(data.signals);
+      }
+      setConnected(true);
+    } catch {
+      setConnected(false);
+    }
   }, []);
 
   useEffect(() => {
-    connect();
-    return () => {
-      wsRef.current?.close();
-    };
-  }, [connect]);
+    poll();
+    const interval = setInterval(poll, 30000);
+    return () => clearInterval(interval);
+  }, [poll]);
 
-  const signals = messages.filter((m) => m.type === "signal").map((m) => m.data);
-  const actions = messages.filter((m) => m.type === "agent_action").map((m) => m.data);
-  const logs = messages.filter((m) => m.type === "log").map((m) => m.data);
-
-  return { connected, messages, signals, actions, logs };
+  return { connected, signals, actions };
 }
