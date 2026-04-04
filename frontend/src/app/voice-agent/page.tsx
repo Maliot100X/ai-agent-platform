@@ -66,6 +66,7 @@ export default function VoiceAgentPage() {
         addMessage("system", "Connected to Deepgram Voice Agent.");
 
         // Send Settings message matching Deepgram Voice Agent API spec
+        // Verified working: SettingsApplied + greeting audio received
         const settings = {
           type: "Settings",
           audio: {
@@ -80,12 +81,11 @@ export default function VoiceAgentPage() {
             },
           },
           agent: {
-            language: "en",
             listen: {
               provider: {
                 type: "deepgram",
                 version: "v2",
-                model: "nova-3",
+                model: "flux-general-en",
               },
             },
             think: {
@@ -97,8 +97,8 @@ export default function VoiceAgentPage() {
 You are FLUXMINT AI, a crypto trading voice assistant specializing in Solana and PumpFun tokens.
 
 #Guidelines
-Keep responses to 1-2 sentences and under 150 characters unless asked for detail.
-Do not use markdown formatting.
+Keep responses to 1-2 sentences and under 150 characters unless asked for detail (max 300 chars).
+Do not use markdown formatting such as code blocks, quotes, bold, links, or italics.
 Be direct, confident, and actionable.
 Speak in a calm, conversational tone.
 
@@ -108,7 +108,7 @@ You can discuss market caps, trading signals (BUY/SELL/HOLD), entry prices, take
 You understand Solana DeFi, DEX aggregators, and meme token trading.
 
 #Style
-Use plain language. No disclaimers. Mirror the user's energy level.
+Use plain language. No disclaimers. Mirror the user energy level.
 When asked about a token, mention: name, market cap, signal, and reasoning.`,
             },
             speak: {
