@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { apiFetch, apiPost } from "@/lib/api";
 
 const SKILLS = [
   {
@@ -110,18 +111,48 @@ const categories = ["All", "Trading", "PumpFun", "Technical", "Copy Trading", "A
 
 export default function SkillsPage() {
   const [filter, setFilter] = useState("All");
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [agents, setAgents] = useState<any[]>([]);
+  const [addingTo, setAddingTo] = useState<{ skillId: string; agentId: string } | null>(null);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    apiFetch("/api/agents").then((d) => setAgents(d.agents || [])).catch(() => {});
+  }, []);
 
   const filtered = filter === "All" ? SKILLS : SKILLS.filter((s) => s.category === filter);
+
+  const addSkillToAgent = async (skillId: string, agentId: string) => {
+    try {
+      setAddingTo({ skillId, agentId });
+      await apiPost("/api/agents", { action: "add_skill", agent_id: agentId, skill_id: skillId });
+      setMessage(`Added skill to agent`);
+      setTimeout(() => setMessage(""), 2000);
+      // Refresh agents
+      const d = await apiFetch("/api/agents");
+      setAgents(d.agents || []);
+    } catch {
+      setMessage("Error adding skill");
+    }
+    setAddingTo(null);
+  };
 
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <h1 className="text-3xl font-bold text-white">Trading Skills</h1>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
+          Trading Skills
+        </h1>
         <p className="text-slate-400 mt-1">
-          10 AI-powered trading skills ready to deploy on your agents
+          10 AI-powered trading skills. Add them to your agents.
         </p>
       </motion.div>
+
+      {message && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="glass-card p-3 text-sm text-emerald-400 border-emerald-500/20">
+          {message}
+        </motion.div>
+      )}
 
       {/* Category Filter */}
       <div className="flex flex-wrap gap-2">
@@ -150,7 +181,6 @@ export default function SkillsPage() {
             transition={{ delay: i * 0.05 }}
             className="glass-card overflow-hidden"
           >
-            {/* Header gradient bar */}
             <div className={`h-1 bg-gradient-to-r ${skill.color}`} />
             
             <div className="p-5">
@@ -174,7 +204,6 @@ export default function SkillsPage() {
 
               <p className="text-sm text-slate-400 mb-4">{skill.desc}</p>
 
-              {/* Features */}
               <div className="space-y-1 mb-4">
                 {skill.features.map((f) => (
                   <div key={f} className="flex items-center gap-2 text-xs text-slate-500">
@@ -184,9 +213,8 @@ export default function SkillsPage() {
                 ))}
               </div>
 
-              {/* Metrics */}
               {skill.metrics.avg_return !== "N/A" && (
-                <div className="grid grid-cols-4 gap-2 pt-3 border-t border-white/5">
+                <div className="grid grid-cols-4 gap-2 pt-3 border-t border-white/5 mb-4">
                   <div>
                     <p className="text-[10px] text-slate-500">Avg Return</p>
                     <p className="text-xs font-medium text-emerald-400">{skill.metrics.avg_return}</p>
@@ -203,6 +231,38 @@ export default function SkillsPage() {
                     <p className="text-[10px] text-slate-500">Trades/Day</p>
                     <p className="text-xs font-medium text-white">{skill.metrics.trades_day}</p>
                   </div>
+                </div>
+              )}
+
+              {/* Add to Agent */}
+              {agents.length > 0 ? (
+                <div className="pt-3 border-t border-white/5">
+                  <p className="text-[10px] text-slate-500 mb-2">Add to Agent:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {agents.map((agent: any) => {
+                      const hasSkill = (agent.skills || []).includes(skill.id);
+                      return (
+                        <button
+                          key={agent.agent_id}
+                          onClick={() => !hasSkill && addSkillToAgent(skill.id, agent.agent_id)}
+                          disabled={hasSkill || addingTo?.skillId === skill.id}
+                          className={`text-[10px] px-2 py-1 rounded-lg transition-all ${
+                            hasSkill
+                              ? "bg-emerald-500/10 text-emerald-400 cursor-default"
+                              : "bg-primary-500/10 text-primary-400 hover:bg-primary-500/20 cursor-pointer"
+                          }`}
+                        >
+                          {hasSkill ? `${agent.name} (added)` : `+ ${agent.name}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="pt-3 border-t border-white/5">
+                  <p className="text-[10px] text-slate-500">
+                    <a href="/agents" className="text-primary-400 hover:text-primary-300">Create an agent</a> to add this skill.
+                  </p>
                 </div>
               )}
             </div>
