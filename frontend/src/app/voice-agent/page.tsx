@@ -217,69 +217,63 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
     }
   }, [addMessage]);
 
-  // Buffer audio chunks and play them as a continuous stream
+  // Improved audio: use a single growing buffer, schedule playback at the right time
+  const nextPlayTimeRef = useRef(0);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const playAudio = async (data: Blob | ArrayBuffer) => {
     try {
       const arrayBuffer = data instanceof Blob ? await data.arrayBuffer() : data;
       const int16 = new Int16Array(arrayBuffer);
       audioQueueRef.current.push(int16);
 
-      // Start playback loop if not already running
-      if (!isPlayingRef.current) {
-        isPlayingRef.current = true;
-        playBufferedAudio();
+      // Schedule a flush after collecting chunks for 200ms
+      if (!flushTimerRef.current) {
+        flushTimerRef.current = setTimeout(() => {
+          flushTimerRef.current = null;
+          flushAudioQueue();
+        }, 200);
       }
     } catch {
       // silently ignore
     }
   };
 
-  const playBufferedAudio = () => {
+  const flushAudioQueue = () => {
+    if (audioQueueRef.current.length === 0) return;
+
     if (!playbackContextRef.current) {
       playbackContextRef.current = new AudioContext({ sampleRate: 24000 });
     }
     const ctx = playbackContextRef.current;
 
-    const processQueue = () => {
-      if (audioQueueRef.current.length === 0) {
-        isPlayingRef.current = false;
-        return;
-      }
+    // Combine all queued chunks
+    const chunks = audioQueueRef.current.splice(0);
+    const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+    const combined = new Int16Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
 
-      // Combine all queued chunks into one buffer for smooth playback
-      const chunks = audioQueueRef.current.splice(0);
-      const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-      const combined = new Int16Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        combined.set(chunk, offset);
-        offset += chunk.length;
-      }
+    const float32 = new Float32Array(combined.length);
+    for (let i = 0; i < combined.length; i++) {
+      float32[i] = combined[i] / 32768;
+    }
 
-      const float32 = new Float32Array(combined.length);
-      for (let i = 0; i < combined.length; i++) {
-        float32[i] = combined[i] / 32768;
-      }
+    const audioBuffer = ctx.createBuffer(1, float32.length, 24000);
+    audioBuffer.getChannelData(0).set(float32);
 
-      const audioBuffer = ctx.createBuffer(1, float32.length, 24000);
-      audioBuffer.getChannelData(0).set(float32);
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(ctx.destination);
 
-      const source = ctx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(ctx.destination);
-      source.onended = () => {
-        // Check for more chunks after this one finishes
-        if (audioQueueRef.current.length > 0) {
-          processQueue();
-        } else {
-          isPlayingRef.current = false;
-        }
-      };
-      source.start();
-    };
-
-    // Wait a small moment to collect initial chunks before playing
-    setTimeout(processQueue, 100);
+    // Schedule seamlessly after previous chunk ends
+    const now = ctx.currentTime;
+    const startTime = Math.max(now, nextPlayTimeRef.current);
+    nextPlayTimeRef.current = startTime + audioBuffer.duration;
+    source.start(startTime);
   };
 
   const startMicrophone = async () => {

@@ -21,6 +21,54 @@ async function sendMessage(chatId: number | string, text: string) {
   });
 }
 
+/**
+ * Generate TTS audio via Deepgram REST API and send as Telegram voice message.
+ * Uses Deepgram's /v1/speak endpoint with OGG Opus output for Telegram compatibility.
+ */
+async function sendVoiceMessage(chatId: number | string, text: string) {
+  const dgKey = process.env.DEEPGRAM_API_KEY;
+  if (!dgKey || !BOT_TOKEN) return;
+
+  try {
+    // Step 1: Generate audio via Deepgram TTS REST API
+    const ttsResp = await fetch(
+      "https://api.deepgram.com/v1/speak?model=aura-stella-en&encoding=opus&container=ogg",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${dgKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(15000),
+      }
+    );
+
+    if (!ttsResp.ok) {
+      // Fallback: send as text
+      await sendMessage(chatId, text);
+      return;
+    }
+
+    const audioBuffer = await ttsResp.arrayBuffer();
+
+    // Step 2: Send as voice message to Telegram using multipart/form-data
+    const blob = new Blob([audioBuffer], { type: "audio/ogg" });
+    const formData = new FormData();
+    formData.append("chat_id", String(chatId));
+    formData.append("voice", blob, "voice.ogg");
+    formData.append("caption", text.length > 200 ? text.slice(0, 200) + "..." : text);
+
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVoice`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch {
+    // Fallback to text on error
+    await sendMessage(chatId, text);
+  }
+}
+
 async function getAgentsFromDB(): Promise<any[]> {
   if (!isSupabaseConfigured()) return [];
   try {
@@ -51,9 +99,10 @@ async function handleCommand(text: string): Promise<string> {
       "/agents - List dashboard agents",
       "/pullagent <name> - Pull agent details",
       "",
-      "----------- *SYSTEM* -----------",
+      "----------- *VOICE & AI* -----------",
+      "/tts <question> - AI voice reply (audio message)",
+      "/ai <question> - Ask the AI (text reply)",
       "/status - System health & integrations",
-      "/ai <question> - Ask the AI anything",
       "",
       "----------- *LINKS* -----------",
       `[Dashboard](${SITE_URL}) | [Skills](${SITE_URL}/skills)`,
@@ -236,8 +285,24 @@ export async function POST(request: NextRequest) {
     const update = await request.json();
     const message = update?.message;
     if (message?.text) {
-      const response = await handleCommand(message.text);
-      await sendMessage(message.chat.id, response);
+      const text = message.text.trim();
+      const chatId = message.chat.id;
+
+      // /tts command: get AI response then send as voice message
+      if (text.toLowerCase().startsWith("/tts ")) {
+        const question = text.slice(5).trim();
+        if (!question) {
+          await sendMessage(chatId, "Usage: /tts <your question>\nExample: /tts what are the best crypto signals today");
+        } else {
+          // Get AI text response first
+          const aiResponse = await handleCommand(`/ai ${question}`);
+          // Send as voice message via Deepgram TTS
+          await sendVoiceMessage(chatId, aiResponse);
+        }
+      } else {
+        const response = await handleCommand(text);
+        await sendMessage(chatId, response);
+      }
     }
     return NextResponse.json({ ok: true });
   } catch (e: any) {
@@ -248,7 +313,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     bot_active: !!BOT_TOKEN,
-    commands: ["/start", "/help", "/market", "/trending", "/pumpfun", "/signals", "/agents", "/pullagent", "/status", "/ai"],
+    commands: ["/start", "/help", "/market", "/trending", "/pumpfun", "/signals", "/agents", "/pullagent", "/tts", "/status", "/ai"],
     channel_id: CHANNEL_ID || "not set",
     webhook_url: `${SITE_URL}/api/telegram/webhook`,
   });
