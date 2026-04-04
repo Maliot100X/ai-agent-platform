@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
         goal: body.goal || "Monitor PumpFun markets and generate trading signals",
         provider: body.provider || "vercel", model: body.model || "deepseek/deepseek-v3.2",
         status: "idle", skills: selectedSkills, max_tokens: body.max_tokens || 3,
+        balance: body.balance || 10000, min_buy: body.min_buy || 50,
+        holdings: [],
       }).select().single();
       if (error) throw error;
       return NextResponse.json({ agent_id: data.id, status: "created", agent: { ...data, agent_id: data.id, skill_details: expandSkills(data.skills || []) }, storage: "supabase" });
