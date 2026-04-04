@@ -53,16 +53,11 @@ export default function VoiceAgentPage() {
         return;
       }
 
-      // Deepgram Voice Agent WebSocket - try multiple auth methods
-      const wsUrl = `${tokenData.websocket_url}`;
-      let ws: WebSocket;
-      try {
-        // Method 1: Subprotocol auth (Deepgram's documented browser method)
-        ws = new WebSocket(wsUrl, ["token", tokenData.key]);
-      } catch {
-        // Method 2: Query parameter auth (fallback)
-        ws = new WebSocket(`${wsUrl}?token=${tokenData.key}`);
-      }
+      // Deepgram Voice Agent WebSocket
+      // Correct endpoint: wss://agent.deepgram.com/v1/agent/converse
+      const wsUrl = "wss://agent.deepgram.com/v1/agent/converse";
+      // Browser WebSocket can't set headers, so use subprotocol auth
+      const ws = new WebSocket(wsUrl, ["token", tokenData.key]);
 
       ws.binaryType = "arraybuffer";
 

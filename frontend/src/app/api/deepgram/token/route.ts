@@ -21,7 +21,7 @@ export async function GET() {
   // For now, we return the key directly (it's server-side only, never in HTML source).
   return NextResponse.json({
     key: apiKey,
-    websocket_url: "wss://agent.deepgram.com/agent",
+    websocket_url: "wss://agent.deepgram.com/v1/agent/converse",
     features: {
       stt: true,
       tts: true,
