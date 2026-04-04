@@ -53,8 +53,18 @@ export default function VoiceAgentPage() {
         return;
       }
 
-      const wsUrl = tokenData.websocket_url;
-      const ws = new WebSocket(wsUrl, ["token", tokenData.key]);
+      // Deepgram Voice Agent WebSocket - try multiple auth methods
+      const wsUrl = `${tokenData.websocket_url}`;
+      let ws: WebSocket;
+      try {
+        // Method 1: Subprotocol auth (Deepgram's documented browser method)
+        ws = new WebSocket(wsUrl, ["token", tokenData.key]);
+      } catch {
+        // Method 2: Query parameter auth (fallback)
+        ws = new WebSocket(`${wsUrl}?token=${tokenData.key}`);
+      }
+
+      ws.binaryType = "arraybuffer";
 
       ws.onopen = () => {
         setConnected(true);
@@ -140,14 +150,17 @@ Be direct and confident in your analysis. No disclaimers needed.`,
           } catch {
             // Not JSON, ignore
           }
-        } else if (event.data instanceof Blob || event.data instanceof ArrayBuffer) {
+        } else if (event.data instanceof ArrayBuffer) {
           // Audio data from agent TTS - play it
+          playAudio(event.data);
+        } else if (event.data instanceof Blob) {
           playAudio(event.data);
         }
       };
 
-      ws.onerror = () => {
-        setError("WebSocket connection error. Check your Deepgram API key.");
+      ws.onerror = (ev) => {
+        console.error("Deepgram WS error:", ev);
+        setError("WebSocket connection error. The Deepgram Voice Agent API may require Voice Agent access enabled on your account. Check console for details.");
         setConnected(false);
       };
 
@@ -155,8 +168,13 @@ Be direct and confident in your analysis. No disclaimers needed.`,
         setConnected(false);
         setListening(false);
         setSpeaking(false);
+        const reason = e.reason || (e.code === 1008 ? "Policy violation - API key may lack Voice Agent permissions" : "");
         if (e.code !== 1000) {
-          addMessage("system", `Disconnected (code: ${e.code}). ${e.reason || ""}`);
+          const msg = `Disconnected (code: ${e.code}). ${reason}`;
+          addMessage("system", msg);
+          if (e.code === 1008 || e.code === 1003 || e.code === 4000) {
+            setError(`Deepgram rejected connection (${e.code}): ${reason || "Ensure Voice Agent is enabled on your Deepgram account at console.deepgram.com"}`);
+          }
         }
       };
 
