@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { apiFetch, apiPost } from "@/lib/api";
+import {
+  getAgents,
+  createAgent,
+  startAgent,
+  stopAgent,
+  deleteAgent,
+  AVAILABLE_SKILLS,
+  type Agent,
+} from "@/lib/agentStore";
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<any[]>([]);
-  const [skills, setSkills] = useState<any[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -15,39 +22,41 @@ export default function AgentsPage() {
     skills: ["momentum_trader", "signal_generation"] as string[],
   });
 
-  const loadAgents = () => {
-    apiFetch("/api/agents").then((d) => {
-      setAgents(d.agents || []);
-      if (d.skills) setSkills(d.skills);
-    }).catch(() => {});
-  };
+  const loadAgents = useCallback(() => {
+    setAgents(getAgents());
+  }, []);
 
   useEffect(() => {
     loadAgents();
-    const interval = setInterval(loadAgents, 10000);
+    const interval = setInterval(loadAgents, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadAgents]);
 
-  const createAgent = async () => {
+  const handleCreate = () => {
     if (!form.name) return;
-    await apiPost("/api/agents", form);
+    createAgent({
+      name: form.name,
+      goal: form.goal,
+      provider: form.provider,
+      skills: form.skills,
+    });
     setShowCreate(false);
     setForm({ name: "", goal: "", provider: "vercel", skills: ["momentum_trader", "signal_generation"] });
     loadAgents();
   };
 
-  const startAgent = async (id: string) => {
-    await apiPost("/api/agents", { action: "start", agent_id: id });
+  const handleStart = (id: string) => {
+    startAgent(id);
     loadAgents();
   };
 
-  const stopAgent = async (id: string) => {
-    await apiPost("/api/agents", { action: "stop", agent_id: id });
+  const handleStop = (id: string) => {
+    stopAgent(id);
     loadAgents();
   };
 
-  const deleteAgent = async (id: string) => {
-    await apiPost("/api/agents", { action: "delete", agent_id: id });
+  const handleDelete = (id: string) => {
+    deleteAgent(id);
     loadAgents();
   };
 
@@ -60,12 +69,16 @@ export default function AgentsPage() {
     }));
   };
 
+  const runningCount = agents.filter((a) => a.status === "running").length;
+
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Agents</h1>
-          <p className="text-slate-400 mt-1">Autonomous AI trading agents with configurable skills</p>
+          <p className="text-slate-400 mt-1">
+            {agents.length} agents created, {runningCount} running
+          </p>
         </div>
         <button
           onClick={() => setShowCreate(!showCreate)}
@@ -115,7 +128,7 @@ export default function AgentsPage() {
             {/* Skill Selection */}
             <h4 className="text-sm font-medium text-slate-300 mb-2">Select Skills:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
-              {skills.map((skill: any) => (
+              {AVAILABLE_SKILLS.map((skill) => (
                 <button
                   key={skill.id}
                   onClick={() => toggleSkill(skill.id)}
@@ -133,7 +146,7 @@ export default function AgentsPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={createAgent}
+                onClick={handleCreate}
                 disabled={!form.name}
                 className="px-6 py-2.5 bg-primary-500 hover:bg-primary-600 disabled:bg-slate-700 text-white rounded-xl text-sm font-medium transition-colors"
               >
@@ -154,7 +167,7 @@ export default function AgentsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {agents.length === 0 ? (
           <div className="glass-card p-8 text-center col-span-2">
-            <p className="text-slate-400">No agents created yet. Click "+ New Agent" to get started.</p>
+            <p className="text-slate-400">No agents created yet. Click &quot;+ New Agent&quot; to get started.</p>
           </div>
         ) : (
           agents.map((agent) => (
@@ -185,36 +198,54 @@ export default function AgentsPage() {
               
               {/* Skills */}
               <div className="flex flex-wrap gap-1 mb-3">
-                {(agent.skill_details || []).map((s: any) => (
+                {(agent.skill_details || []).map((s) => (
                   <span key={s.id} className="text-[10px] px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-300">
                     {s.name}
                   </span>
                 ))}
               </div>
 
-              <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
+              {/* Stats */}
+              <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
                 <span>Provider: {agent.provider}</span>
-                <span>Max Tokens: {agent.max_tokens || 3}</span>
+                <span>Max Tokens: {agent.max_tokens}</span>
+                <span>Signals: {agent.signals_generated}</span>
+                <span>Trades: {agent.trades_executed}</span>
               </div>
+
+              {/* Holdings */}
+              {agent.holdings.length > 0 && (
+                <div className="mb-3 p-2 bg-surface-800/50 rounded-lg">
+                  <p className="text-[10px] text-slate-500 mb-1">Current Holdings:</p>
+                  {agent.holdings.map((h) => (
+                    <div key={h.address} className="flex justify-between text-xs">
+                      <span className="text-white">{h.symbol}</span>
+                      <span className={h.pnl >= 0 ? "text-emerald-400" : "text-red-400"}>
+                        {h.pnl >= 0 ? "+" : ""}{h.pnl_percent.toFixed(1)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               
               <div className="flex gap-2">
                 {agent.status !== "running" ? (
                   <button
-                    onClick={() => startAgent(agent.agent_id)}
+                    onClick={() => handleStart(agent.agent_id)}
                     className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-xs font-medium hover:bg-emerald-500/20 transition-colors"
                   >
                     Start
                   </button>
                 ) : (
                   <button
-                    onClick={() => stopAgent(agent.agent_id)}
+                    onClick={() => handleStop(agent.agent_id)}
                     className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs font-medium hover:bg-red-500/20 transition-colors"
                   >
                     Stop
                   </button>
                 )}
                 <button
-                  onClick={() => deleteAgent(agent.agent_id)}
+                  onClick={() => handleDelete(agent.agent_id)}
                   className="px-3 py-1.5 bg-surface-800 text-slate-400 rounded-lg text-xs hover:text-red-400 transition-colors"
                 >
                   Delete

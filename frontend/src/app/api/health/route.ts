@@ -15,7 +15,16 @@ export async function GET() {
     model: process.env.MODEL_NAME || "deepseek/deepseek-v3.2",
     ws_clients: 0,
     signals_count: 0,
-    skills: 7,
+    skills: 10,
     version: "2.0.0",
+    integrations: {
+      pumpfun: "active",
+      dexscreener: "active",
+      coingecko: "active",
+      birdeye: process.env.BIRDEYE_API_KEY ? "active" : "not configured",
+      helius: process.env.HELIUS_API_KEY ? "active" : "not configured",
+      telegram: process.env.TELEGRAM_BOT_TOKEN ? "active" : "not configured",
+      vercel_ai: process.env.VERCEL_API_KEY ? "active" : "not configured",
+    },
   });
 }
