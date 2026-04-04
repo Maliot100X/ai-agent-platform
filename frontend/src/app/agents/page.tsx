@@ -60,6 +60,8 @@ export default function AgentsPage() {
   const handleStart = async (id: string) => { await apiPost("/api/agents", { action: "start", agent_id: id }); loadAgents(); };
   const handleStop = async (id: string) => { await apiPost("/api/agents", { action: "stop", agent_id: id }); loadAgents(); };
   const handleDelete = async (id: string) => { await apiPost("/api/agents", { action: "delete", agent_id: id }); loadAgents(); };
+  const handleSellToken = async (agentId: string, mint: string) => { await apiPost("/api/agents", { action: "sell_token", agent_id: agentId, mint }); loadAgents(); };
+  const handleSellAll = async (agentId: string) => { await apiPost("/api/agents", { action: "sell_all", agent_id: agentId }); loadAgents(); };
 
   const toggleSkill = (skillId: string) => {
     setForm((f) => ({
@@ -188,10 +190,20 @@ export default function AgentsPage() {
                         <span>Current: ${Number(h.current_mc || h.entry_mc || 0).toLocaleString()}</span>
                         <span>${h.amount}</span>
                       </div>
-                      <p className="text-[9px] text-slate-600 font-mono mt-0.5 truncate">{h.mint}</p>
+                      <div className="flex justify-between items-center mt-1">
+                        <p className="text-[9px] text-slate-600 font-mono truncate flex-1">{h.mint}</p>
+                        <button onClick={() => handleSellToken(agent.agent_id || agent.id, h.mint)}
+                          className="text-[9px] px-2 py-0.5 bg-red-500/10 text-red-400 rounded hover:bg-red-500/20 ml-2">
+                          Sell
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
+                <button onClick={() => handleSellAll(agent.agent_id || agent.id)}
+                  className="w-full mt-2 text-[10px] px-2 py-1 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 font-medium">
+                  Sell All Holdings
+                </button>
               </div>
             )}
 

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
-const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || "";
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8353945339:AAGuhY9vYjzfDMv245NB7lGt6J-lLRcQAwQ";
+const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || "-1002926556738";
 const VERCEL_AI_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 const SITE_URL = "https://ai-agent-platform-six.vercel.app";
 

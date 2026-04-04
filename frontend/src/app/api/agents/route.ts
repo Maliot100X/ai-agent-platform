@@ -69,6 +69,53 @@ export async function POST(request: NextRequest) {
         if (error) throw error;
         return NextResponse.json({ success: true });
       }
+      if (action === "sell_token" && body.agent_id && body.mint) {
+        const { data: agent } = await sb.from("agents").select("*").eq("id", body.agent_id).single();
+        if (!agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+        const holdings = (agent.holdings || []).filter((h: any) => h.mint !== body.mint);
+        const sold = (agent.holdings || []).find((h: any) => h.mint === body.mint);
+        const pnlUsd = sold ? (sold.amount || 0) * ((sold.pnl_percent || 0) / 100) : 0;
+        const newBalance = (Number(agent.balance) || 0) + (sold?.amount || 0) + pnlUsd;
+        const { data, error } = await sb.from("agents")
+          .update({ holdings, balance: newBalance, trades_executed: (agent.trades_executed || 0) + 1, updated_at: new Date().toISOString() })
+          .eq("id", body.agent_id).select().single();
+        if (error) throw error;
+        if (sold) {
+          await sb.from("agent_logs").insert({
+            agent_id: body.agent_id, action: "sell", symbol: sold.symbol, mint: sold.mint,
+            price: sold.current_price || 0, amount: sold.amount || 0,
+            market_cap: sold.current_mc || 0, signal_type: "sell", strength: 3,
+            reasoning: `MANUAL SELL ${sold.symbol}: ${(sold.pnl_percent || 0) >= 0 ? "+" : ""}${(sold.pnl_percent || 0).toFixed(1)}%`,
+            pnl: sold.pnl_percent || 0,
+          });
+        }
+        return NextResponse.json({ success: true, agent: { ...data, agent_id: data.id, skill_details: expandSkills(data.skills || []) } });
+      }
+
+      if (action === "sell_all" && body.agent_id) {
+        const { data: agent } = await sb.from("agents").select("*").eq("id", body.agent_id).single();
+        if (!agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+        let newBalance = Number(agent.balance) || 0;
+        const sellLogs: any[] = [];
+        for (const h of agent.holdings || []) {
+          const pnlUsd = (h.amount || 0) * ((h.pnl_percent || 0) / 100);
+          newBalance += (h.amount || 0) + pnlUsd;
+          sellLogs.push({
+            agent_id: body.agent_id, action: "sell", symbol: h.symbol, mint: h.mint,
+            price: h.current_price || 0, amount: h.amount || 0,
+            market_cap: h.current_mc || 0, signal_type: "sell", strength: 3,
+            reasoning: `SELL ALL ${h.symbol}: ${(h.pnl_percent || 0) >= 0 ? "+" : ""}${(h.pnl_percent || 0).toFixed(1)}%`,
+            pnl: h.pnl_percent || 0,
+          });
+        }
+        const { data, error } = await sb.from("agents")
+          .update({ holdings: [], balance: newBalance, trades_executed: (agent.trades_executed || 0) + sellLogs.length, updated_at: new Date().toISOString() })
+          .eq("id", body.agent_id).select().single();
+        if (error) throw error;
+        if (sellLogs.length > 0) await sb.from("agent_logs").insert(sellLogs);
+        return NextResponse.json({ success: true, sold: sellLogs.length, agent: { ...data, agent_id: data.id, skill_details: expandSkills(data.skills || []) } });
+      }
+
       if (action === "add_skill" && body.agent_id && body.skill_id) {
         const { data: agent } = await sb.from("agents").select("skills").eq("id", body.agent_id).single();
         if (!agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
