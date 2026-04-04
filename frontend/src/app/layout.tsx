@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import FloatingBot from "@/components/FloatingBot";
 
 export const metadata: Metadata = {
-  title: "AI Agent Platform - Dashboard",
-  description: "Autonomous AI analysis platform with multi-LLM support and paper trading",
+  title: "FLUXMINT AI - Trading Platform",
+  description: "Autonomous AI trading platform with multi-LLM support, PumpFun integration, and real-time Solana analytics",
 };
 
 export default function RootLayout({
@@ -19,6 +20,7 @@ export default function RootLayout({
           <Sidebar />
           <main className="flex-1 overflow-y-auto p-6">{children}</main>
         </div>
+        <FloatingBot />
       </body>
     </html>
   );
