@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
-import FloatingBot from "@/components/FloatingBot";
+
+const FloatingBot = dynamic(() => import("@/components/FloatingBot"), {
+  ssr: false,
+});
 
 export const metadata: Metadata = {
   title: "FLUXMINT AI - Trading Platform",
