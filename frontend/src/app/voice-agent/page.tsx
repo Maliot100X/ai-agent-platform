@@ -70,13 +70,13 @@ export default function VoiceAgentPage() {
         setConnected(true);
         addMessage("system", "Connected to Deepgram Voice Agent.");
 
-        // Send Settings message to configure the agent
+        // Send Settings message matching Deepgram Voice Agent API spec
         const settings = {
-          type: "SettingsConfiguration",
+          type: "Settings",
           audio: {
             input: {
               encoding: "linear16",
-              sample_rate: 16000,
+              sample_rate: 48000,
             },
             output: {
               encoding: "linear16",
@@ -85,24 +85,44 @@ export default function VoiceAgentPage() {
             },
           },
           agent: {
+            language: "en",
             listen: {
-              model: "nova-3",
+              provider: {
+                type: "deepgram",
+                version: "v2",
+                model: "nova-3",
+              },
             },
             think: {
               provider: {
                 type: "open_ai",
+                model: "gpt-4o-mini",
               },
-              model: "gpt-4o-mini",
-              instructions: `You are FLUXMINT AI, a crypto trading voice assistant specializing in Solana and PumpFun tokens. 
-You provide real-time market analysis, trading signals, and token information.
-Keep responses concise and actionable - this is voice, not text.
-When asked about tokens, mention the token name, market cap, and your signal (buy/sell/hold).
-You know about PumpFun launches, bonding curves, graduation events, and Raydium listings.
-Be direct and confident in your analysis. No disclaimers needed.`,
+              prompt: `#Role
+You are FLUXMINT AI, a crypto trading voice assistant specializing in Solana and PumpFun tokens.
+
+#Guidelines
+Keep responses to 1-2 sentences and under 150 characters unless asked for detail.
+Do not use markdown formatting.
+Be direct, confident, and actionable.
+Speak in a calm, conversational tone.
+
+#Knowledge
+You know about PumpFun token launches, bonding curves, graduation events, and Raydium listings.
+You can discuss market caps, trading signals (BUY/SELL/HOLD), entry prices, take-profit, and stop-loss levels.
+You understand Solana DeFi, DEX aggregators, and meme token trading.
+
+#Style
+Use plain language. No disclaimers. Mirror the user's energy level.
+When asked about a token, mention: name, market cap, signal, and reasoning.`,
             },
             speak: {
-              model: "aura-2-theia-en",
+              provider: {
+                type: "deepgram",
+                model: "aura-2-theia-en",
+              },
             },
+            greeting: "Hey, FLUXMINT AI here. What do you want to know about the markets today?",
           },
         };
         ws.send(JSON.stringify(settings));
@@ -215,7 +235,7 @@ Be direct and confident in your analysis. No disclaimers needed.`,
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 16000,
+          sampleRate: 48000,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
@@ -223,7 +243,7 @@ Be direct and confident in your analysis. No disclaimers needed.`,
       });
       mediaStreamRef.current = stream;
 
-      const audioContext = new AudioContext({ sampleRate: 16000 });
+      const audioContext = new AudioContext({ sampleRate: 48000 });
       audioContextRef.current = audioContext;
 
       const source = audioContext.createMediaStreamSource(stream);
