@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
-
-const FloatingBot = dynamic(() => import("@/components/FloatingBot"), {
-  ssr: false,
-});
+import ClientBot from "@/components/ClientBot";
 
 export const metadata: Metadata = {
   title: "FLUXMINT AI - Trading Platform",
@@ -24,7 +20,7 @@ export default function RootLayout({
           <Sidebar />
           <main className="flex-1 overflow-y-auto p-6">{children}</main>
         </div>
-        <FloatingBot />
+        <ClientBot />
       </body>
     </html>
   );
