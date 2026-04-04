@@ -1,65 +1,47 @@
-"""Vercel serverless entry point."""
+"""Vercel serverless entry point for the FastAPI backend."""
 
 import os
 import sys
-import json
 import types
 import traceback
 
-def _setup_paths():
-    """Setup Python paths for backend imports."""
-    task_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    parent_dir = os.path.dirname(task_dir)
-    
-    for p in [parent_dir, task_dir]:
-        if p not in sys.path:
-            sys.path.insert(0, p)
-    
-    # Create virtual backend package if needed
-    if "backend" not in sys.modules:
-        try:
-            import backend
-        except ImportError:
-            backend_pkg = types.ModuleType("backend")
-            backend_pkg.__path__ = [task_dir]
-            backend_pkg.__file__ = os.path.join(task_dir, "__init__.py")
-            sys.modules["backend"] = backend_pkg
+# Setup: make "backend" package importable
+_here = os.path.dirname(os.path.abspath(__file__))
+_backend_dir = os.path.dirname(_here)
+_project_root = os.path.dirname(_backend_dir)
 
-_setup_paths()
+for p in [_project_root, _backend_dir]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-# Try importing the full app
-_app = None
-_error = None
+if "backend" not in sys.modules:
+    try:
+        import backend as _test
+    except ImportError:
+        _pkg = types.ModuleType("backend")
+        _pkg.__path__ = [_backend_dir]
+        _pkg.__file__ = os.path.join(_backend_dir, "__init__.py")
+        sys.modules["backend"] = _pkg
 
+# Import the app
 try:
-    from backend.main import app as _app
-except Exception as e:
-    _error = traceback.format_exc()
-
-if _app is not None:
-    app = _app
-else:
-    # Minimal ASGI app that shows the error - no external deps needed
-    async def app(scope, receive, send):
-        if scope["type"] == "http":
-            body = json.dumps({
-                "status": "startup_error",
-                "error": _error or "Unknown error",
-                "python": sys.version,
-                "cwd": os.getcwd(),
-                "listdir": os.listdir(os.getcwd())[:30],
-                "sys_path": sys.path[:10],
-            }, indent=2).encode()
-            
-            await send({
-                "type": "http.response.start",
-                "status": 500,
-                "headers": [
-                    [b"content-type", b"application/json"],
-                    [b"access-control-allow-origin", b"*"],
-                ],
-            })
-            await send({
-                "type": "http.response.body",
-                "body": body,
-            })
+    from backend.main import app
+except Exception:
+    # Fallback: minimal FastAPI app showing the error
+    _err = traceback.format_exc()
+    
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+    
+    app = FastAPI()
+    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    
+    @app.get("/api/health")
+    @app.get("/{path:path}")
+    async def debug(path: str = ""):
+        return {
+            "error": _err,
+            "cwd": os.getcwd(),
+            "files": sorted(os.listdir(_backend_dir))[:20],
+            "python": sys.version,
+        }
