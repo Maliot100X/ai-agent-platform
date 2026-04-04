@@ -15,15 +15,14 @@ export default function LaunchpadPage() {
     setLoading(true);
     try {
       let sort = "created_timestamp";
-      let params = "";
+      let params = `&tab=${t}`;
       if (t === "graduating") {
         sort = "market_cap";
-        params = "&complete=false";
+        params += "&complete=false";
       } else if (t === "graduated") {
         sort = "market_cap";
-        params = "&complete=true";
+        params += "&complete=true";
       }
-      // Use our proxy API to avoid CORS
       const data = await apiFetch(
         `/api/pumpfun/coins?offset=0&limit=30&sort=${sort}&order=DESC${params}`
       );
@@ -46,7 +45,7 @@ export default function LaunchpadPage() {
         <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
           PumpFun Launchpad
         </h1>
-        <p className="text-slate-400 mt-1">Real-time Solana meme token launches from pump.fun</p>
+        <p className="text-slate-400 mt-1">Real-time Solana meme token launches (recent 2 weeks)</p>
       </motion.div>
 
       {/* Tabs */}
@@ -57,16 +56,16 @@ export default function LaunchpadPage() {
             onClick={() => setTab(t)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               tab === t
-                ? "bg-primary-500 text-white"
+                ? "bg-primary-500 text-white shadow-lg shadow-primary-500/20"
                 : "bg-surface-800 text-slate-400 hover:text-white hover:bg-surface-700"
             }`}
           >
-            {t === "new" ? "New Launches" : t === "graduating" ? "Graduating" : "Graduated"}
+            {t === "new" ? "New Launches" : t === "graduating" ? "Graduating (Active)" : "Graduated (Raydium)"}
           </button>
         ))}
         <button
           onClick={() => fetchTokens(tab)}
-          className="ml-auto px-3 py-2 bg-surface-800 text-slate-400 rounded-xl text-xs hover:text-white"
+          className="ml-auto px-3 py-2 bg-surface-800 text-slate-400 rounded-xl text-xs hover:text-white transition-colors"
         >
           Refresh
         </button>
@@ -80,7 +79,7 @@ export default function LaunchpadPage() {
         </div>
       ) : tokens.length === 0 ? (
         <div className="glass-card p-8 text-center">
-          <p className="text-slate-400">No tokens found. Try refreshing.</p>
+          <p className="text-slate-400">No recent tokens found in this category. Try refreshing.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -103,10 +102,12 @@ export default function LaunchpadPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="text-white font-semibold text-sm truncate">{t.symbol}</h3>
-                    {t.complete && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
-                        Graduated
-                      </span>
+                    {t.complete ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Graduated</span>
+                    ) : (t.usd_market_cap || 0) > 20000 ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400">Graduating</span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">New</span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 truncate">{t.name}</p>
@@ -115,7 +116,7 @@ export default function LaunchpadPage() {
 
               {/* Contract Address */}
               <div className="mb-3">
-                <p className="text-[10px] text-slate-600 mb-0.5">Contract Address</p>
+                <p className="text-[10px] text-slate-600 mb-0.5">CA</p>
                 <p className="text-[11px] text-slate-400 font-mono truncate select-all">{t.mint}</p>
               </div>
 
@@ -132,14 +133,14 @@ export default function LaunchpadPage() {
                 </div>
                 {t.virtual_sol_reserves && (
                   <div>
-                    <p className="text-slate-500">SOL Reserves</p>
+                    <p className="text-slate-500">SOL Pool</p>
                     <p className="text-white">{(t.virtual_sol_reserves / 1e9).toFixed(2)} SOL</p>
                   </div>
                 )}
-                {t.virtual_token_reserves && (
+                {t.ath_market_cap && (
                   <div>
-                    <p className="text-slate-500">Token Reserves</p>
-                    <p className="text-white">{(t.virtual_token_reserves / 1e6).toFixed(0)}M</p>
+                    <p className="text-slate-500">ATH MC</p>
+                    <p className="text-white">${(t.ath_market_cap || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                   </div>
                 )}
               </div>
@@ -148,7 +149,6 @@ export default function LaunchpadPage() {
                 <p className="text-[11px] text-slate-500 line-clamp-2 mb-3">{t.description.slice(0, 120)}</p>
               )}
 
-              {/* Creator */}
               {t.creator && (
                 <p className="text-[10px] text-slate-600 mb-2 truncate">
                   Creator: <span className="text-slate-500 font-mono">{t.creator}</span>
