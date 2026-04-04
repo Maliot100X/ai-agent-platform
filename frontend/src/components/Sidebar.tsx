@@ -32,8 +32,8 @@ export default function Sidebar() {
             </svg>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white">AI Agent</h1>
-            <p className="text-xs text-slate-400">Platform v1.0</p>
+            <h1 className="text-lg font-bold text-white">FLUXMINT AI</h1>
+            <p className="text-xs text-slate-400">Trading Platform v2.0</p>
           </div>
         </div>
       </div>

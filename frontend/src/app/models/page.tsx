@@ -5,6 +5,11 @@ import { motion } from "framer-motion";
 import { apiFetch } from "@/lib/api";
 
 const providerInfo: Record<string, { name: string; desc: string; color: string }> = {
+  vercel: {
+    name: "Vercel AI Gateway",
+    desc: "DeepSeek v3.2 via Vercel AI Gateway. High-performance inference with automatic routing and caching.",
+    color: "from-purple-500/20 to-purple-600/5 border-purple-500/20",
+  },
   fireworks: {
     name: "Fireworks AI",
     desc: "High-performance inference with OpenAI-compatible API. Default model: kimi-k2p5-turbo",
@@ -17,7 +22,7 @@ const providerInfo: Record<string, { name: string; desc: string; color: string }
   },
   ollama: {
     name: "Ollama (Local)",
-    desc: "Run models locally for privacy and zero-cost inference",
+    desc: "Run models locally for privacy and zero-cost inference. Supports llama3.1, mistral, codellama, etc.",
     color: "from-emerald-500/20 to-emerald-600/5 border-emerald-500/20",
   },
   openai: {
