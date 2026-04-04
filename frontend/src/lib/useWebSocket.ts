@@ -4,22 +4,48 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { apiFetch } from "./api";
 
 /**
- * Polls /api/signals for live PumpFun data.
- * Replaces WebSocket since Vercel serverless doesn't support persistent connections.
- * Starts connected=true optimistically to avoid showing "Connecting..." on load.
+ * Polls /api/logs for real agent activity (buy/sell/signal from running agents).
+ * Falls back to /api/signals if no agent logs exist.
  */
 export function useWebSocket() {
   const [signals, setSignals] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
-  const [connected, setConnected] = useState(true); // optimistic
+  const [connected, setConnected] = useState(true);
   const retryCount = useRef(0);
 
   const poll = useCallback(async () => {
     try {
+      // First try agent logs (real trades)
+      const logData = await apiFetch("/api/logs?limit=30");
+      if (logData.logs?.length > 0) {
+        const logSignals = logData.logs.map((l: any) => ({
+          symbol: l.symbol || "???",
+          signal_type: l.signal_type || l.action,
+          signal: l.signal_type || l.action,
+          strength: l.strength || 3,
+          reasoning: l.reasoning || `${l.action} ${l.symbol}`,
+          timestamp: l.created_at,
+          agent_id: l.agent_id,
+          mint: l.mint,
+          market_cap: l.market_cap,
+          pnl: l.pnl,
+          source: "agent",
+        }));
+        setSignals(logSignals);
+        setActions(logData.logs.filter((l: any) => l.action === "buy" || l.action === "sell").slice(0, 10).map((l: any) => ({
+          type: l.action,
+          message: `${l.action.toUpperCase()} ${l.symbol} @ MC $${Number(l.market_cap || 0).toLocaleString()} ${l.pnl ? `(${Number(l.pnl) >= 0 ? "+" : ""}${Number(l.pnl).toFixed(1)}%)` : ""}`,
+          timestamp: l.created_at,
+        })));
+        setConnected(true);
+        retryCount.current = 0;
+        return;
+      }
+
+      // Fallback to PumpFun signals if no agent logs
       const data = await apiFetch("/api/signals");
       if (data.signals?.length) {
         setSignals(data.signals);
-        // Build actions from buy signals
         const newActions = data.signals
           .filter((s: any) => s.signal_type === "buy" && s.strength >= 3)
           .slice(0, 5)
@@ -34,21 +60,14 @@ export function useWebSocket() {
       retryCount.current = 0;
     } catch {
       retryCount.current += 1;
-      // Only show disconnected after 3 consecutive failures
-      if (retryCount.current >= 3) {
-        setConnected(false);
-      }
+      if (retryCount.current >= 3) setConnected(false);
     }
   }, []);
 
   useEffect(() => {
-    // Initial poll with slight delay to let page render first
-    const initialTimer = setTimeout(poll, 1000);
-    const interval = setInterval(poll, 20000);
-    return () => {
-      clearTimeout(initialTimer);
-      clearInterval(interval);
-    };
+    const t = setTimeout(poll, 1000);
+    const interval = setInterval(poll, 15000);
+    return () => { clearTimeout(t); clearInterval(interval); };
   }, [poll]);
 
   return { connected, signals, actions };

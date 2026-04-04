@@ -1,5 +1,5 @@
 -- FLUXMINT AI Agent Platform - Supabase Schema
--- Run this ENTIRE content in Supabase SQL Editor (Dashboard > SQL Editor > New Query)
+-- Run this ENTIRE block in Supabase SQL Editor
 
 CREATE TABLE IF NOT EXISTS agents (
   id TEXT PRIMARY KEY,
@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS agents (
   status TEXT DEFAULT 'idle',
   skills TEXT[] DEFAULT '{}',
   max_tokens INTEGER DEFAULT 3,
+  balance NUMERIC DEFAULT 10000,
+  min_buy NUMERIC DEFAULT 50,
+  holdings JSONB DEFAULT '[]',
   signals_generated INTEGER DEFAULT 0,
   trades_executed INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -50,27 +53,36 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add new columns if tables already exist
+DO $$ BEGIN
+  ALTER TABLE agents ADD COLUMN IF NOT EXISTS balance NUMERIC DEFAULT 10000;
+  ALTER TABLE agents ADD COLUMN IF NOT EXISTS min_buy NUMERIC DEFAULT 50;
+  ALTER TABLE agents ADD COLUMN IF NOT EXISTS holdings JSONB DEFAULT '[]';
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE strategies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'agents' AND policyname = 'allow_all_agents') THEN
-    CREATE POLICY allow_all_agents ON agents FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'strategies' AND policyname = 'allow_all_strategies') THEN
-    CREATE POLICY allow_all_strategies ON strategies FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'agent_logs' AND policyname = 'allow_all_logs') THEN
-    CREATE POLICY allow_all_logs ON agent_logs FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'settings' AND policyname = 'allow_all_settings') THEN
-    CREATE POLICY allow_all_settings ON settings FOR ALL USING (true) WITH CHECK (true);
-  END IF;
+  CREATE POLICY allow_all_agents ON agents FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY allow_all_strategies ON strategies FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY allow_all_logs ON agent_logs FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY allow_all_settings ON settings FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_agents_status ON agents(status);
-CREATE INDEX IF NOT EXISTS idx_strategies_status ON strategies(status);
 CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_logs(agent_id);
 CREATE INDEX IF NOT EXISTS idx_agent_logs_created ON agent_logs(created_at DESC);
