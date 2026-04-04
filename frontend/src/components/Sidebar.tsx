@@ -9,6 +9,7 @@ const navItems = [
   { href: "/agents", label: "Agents", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { href: "/signals", label: "Signals", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
   { href: "/launchpad", label: "Launchpad", icon: "M15 11.25l-3-3m0 0l-3 3m3-3v7.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+  { href: "/skills", label: "Skills", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
   { href: "/strategies", label: "Strategies", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
   { href: "/logs", label: "Logs", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
   { href: "/models", label: "Models", icon: "M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" },
@@ -22,23 +23,21 @@ export default function Sidebar() {
     <motion.aside
       initial={{ x: -280 }}
       animate={{ x: 0 }}
-      className="w-64 h-screen bg-surface-900/80 backdrop-blur-xl border-r border-white/5 flex flex-col"
+      className="w-64 h-screen bg-surface-900/80 backdrop-blur-xl border-r border-white/5 flex flex-col z-10"
     >
       {/* Logo */}
       <div className="p-6 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center shadow-lg shadow-primary-500/20">
             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white">AI Agent Platform</h1>
-            <p className="text-xs text-slate-400">
-              <a href="https://kainova.xyz" target="_blank" rel="noopener" className="hover:text-primary-400 transition-colors">
-                by KaiNova
-              </a>
-            </p>
+            <h1 className="text-lg font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
+              FLUXMINT AI
+            </h1>
+            <p className="text-[10px] text-slate-500">Trading Platform v2.0</p>
           </div>
         </div>
       </div>
@@ -78,26 +77,34 @@ export default function Sidebar() {
           <a
             href="https://x.com/KaiNovasWarm"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="flex-1 text-center px-2 py-1.5 bg-surface-800 text-slate-400 rounded-lg text-xs hover:text-white transition-colors"
           >
-            Twitter/X
+            @KaiNovasWarm
           </a>
           <a
             href="https://github.com/Maliot100X"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="flex-1 text-center px-2 py-1.5 bg-surface-800 text-slate-400 rounded-lg text-xs hover:text-white transition-colors"
           >
             GitHub
           </a>
         </div>
+        <a
+          href="https://kainova.xyz"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-center px-2 py-1.5 bg-gradient-to-r from-primary-500/10 to-accent-500/10 text-primary-400 rounded-lg text-xs hover:text-white transition-colors border border-primary-500/10"
+        >
+          kainova.xyz
+        </a>
         <div className="glass-card p-3">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs text-slate-400">System Online</span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">Vercel AI Gateway</p>
+          <p className="text-[10px] text-slate-500 mt-1">Vercel AI Gateway | DeepSeek v3.2</p>
         </div>
       </div>
     </motion.aside>
