@@ -132,7 +132,7 @@ If asked who made you, say Maliot built you as part of the FLUXMINT AI platform.
             speak: {
               provider: {
                 type: "deepgram",
-                model: "aura-2-stella-en",
+                model: "aura-stella-en",
               },
             },
             greeting: "Hey there! Welcome to FLUXMINT AI, built by Maliot. I'm your voice trading assistant. You can check us out on Twitter at KaiNovasWarm or GitHub at Maliot100X. What would you like to know about the crypto markets today?",
