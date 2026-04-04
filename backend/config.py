@@ -6,8 +6,11 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # AI Provider
-    model_provider: str = "fireworks"
-    model_name: str = "accounts/fireworks/routers/kimi-k2p5-turbo"
+    model_provider: str = "vercel"
+    model_name: str = "deepseek/deepseek-v3.2"
+
+    # Vercel AI Gateway
+    vercel_api_key: Optional[str] = None
 
     # Fireworks
     fireworks_api_key: Optional[str] = None
@@ -22,6 +25,12 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None
     openai_base_url: str = "https://api.openai.com/v1"
 
+    # Solana / DeFi
+    birdeye_api_key: Optional[str] = None
+    helius_api_key: Optional[str] = None
+    helius_api_key_2: Optional[str] = None
+    helius_api_key_3: Optional[str] = None
+
     # Database
     database_url: str = "postgresql+asyncpg://agent_user:agent_pass@localhost:5432/agent_platform"
     database_sync_url: str = "postgresql://agent_user:agent_pass@localhost:5432/agent_platform"
@@ -32,6 +41,7 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: Optional[str] = None
     telegram_admin_chat_id: Optional[str] = None
+    telegram_channel_id: Optional[str] = None
 
     # API
     api_host: str = "0.0.0.0"
@@ -40,7 +50,7 @@ class Settings(BaseSettings):
 
     # Dashboard
     dashboard_url: str = "http://localhost:3000"
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "*"
 
     # Observability
     log_level: str = "INFO"

@@ -6,8 +6,10 @@ from .fireworks import FireworksProvider
 from .gemini import GeminiProvider
 from .ollama import OllamaProvider
 from .openai_compat import OpenAICompatProvider
+from .vercel_ai import VercelAIProvider
 
 _PROVIDERS: dict[str, type[BaseProvider]] = {
+    "vercel": VercelAIProvider,
     "fireworks": FireworksProvider,
     "gemini": GeminiProvider,
     "ollama": OllamaProvider,
