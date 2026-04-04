@@ -166,17 +166,32 @@ export default function AgentsPage() {
               <div><p className="text-slate-500">Trades</p><p className="text-white">{agent.trades_executed || 0}</p></div>
             </div>
 
-            {/* Current Holdings */}
+            {/* Current Holdings with Live P&L */}
             {(agent.holdings || []).length > 0 && (
-              <div className="mb-3 p-2 bg-surface-800/30 rounded-lg">
-                <p className="text-[10px] text-slate-500 mb-1">Holdings ({(agent.holdings || []).length}/{agent.max_tokens || 3}):</p>
-                {(agent.holdings || []).map((h: any) => (
-                  <div key={h.mint} className="flex justify-between text-xs py-0.5">
-                    <span className="text-white">{h.symbol}</span>
-                    <span className="text-slate-400 font-mono text-[10px]">{h.mint?.slice(0, 12)}...</span>
-                    <span className="text-slate-400">${h.amount}</span>
-                  </div>
-                ))}
+              <div className="mb-3 p-3 bg-surface-800/30 rounded-lg space-y-2">
+                <p className="text-[10px] text-slate-500">Holdings ({(agent.holdings || []).length}/{agent.max_tokens || 3}):</p>
+                {(agent.holdings || []).map((h: any) => {
+                  const pnl = Number(h.pnl_percent) || 0;
+                  return (
+                    <div key={h.mint} className="p-2 bg-surface-900/50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {h.image_uri && <img src={h.image_uri} alt={h.symbol} className="w-5 h-5 rounded" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+                          <span className="text-white text-xs font-medium">{h.symbol}</span>
+                        </div>
+                        <span className={`text-xs font-bold ${pnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {pnl >= 0 ? "+" : ""}{pnl.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>Entry: ${Number(h.entry_mc || 0).toLocaleString()}</span>
+                        <span>Current: ${Number(h.current_mc || h.entry_mc || 0).toLocaleString()}</span>
+                        <span>${h.amount}</span>
+                      </div>
+                      <p className="text-[9px] text-slate-600 font-mono mt-0.5 truncate">{h.mint}</p>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
