@@ -1,10 +1,18 @@
-"""Database layer with SQLAlchemy async models and session management."""
+"""Database layer - optional on Vercel serverless."""
 
-from .models import Base, Agent, AgentLog, Signal, Strategy, Position, Provider, Session
-from .session import get_db, engine, async_session
-
-__all__ = [
-    "Base", "Agent", "AgentLog", "Signal", "Strategy",
-    "Position", "Provider", "Session",
-    "get_db", "engine", "async_session",
-]
+try:
+    from .models import Base, Agent, AgentLog, Signal, Strategy, Position, Provider, Session
+    from .session import get_db, engine, async_session
+except ImportError:
+    # SQLAlchemy not available (Vercel serverless mode)
+    Base = None
+    Agent = None
+    AgentLog = None
+    Signal = None
+    Strategy = None
+    Position = None
+    Provider = None
+    Session = None
+    get_db = None
+    engine = None
+    async_session = None
