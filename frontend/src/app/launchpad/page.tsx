@@ -15,7 +15,7 @@ export default function LaunchpadPage() {
     setLoading(true);
     try {
       let sort = "created_timestamp";
-      let params = "includeNsfw=false";
+      let params = `&tab=${t}`;
       if (t === "graduating") {
         sort = "market_cap";
         params += "&complete=false";
@@ -23,12 +23,10 @@ export default function LaunchpadPage() {
         sort = "market_cap";
         params += "&complete=true";
       }
-      const resp = await fetch(
-        `https://frontend-api-v3.pump.fun/coins?offset=0&limit=30&sort=${sort}&order=DESC&${params}`
+      const data = await apiFetch(
+        `/api/pumpfun/coins?offset=0&limit=30&sort=${sort}&order=DESC${params}`
       );
-      if (!resp.ok) throw new Error("Failed");
-      const data = await resp.json();
-      setTokens(Array.isArray(data) ? data : []);
+      setTokens(data.tokens || []);
     } catch {
       setTokens([]);
     }
@@ -44,8 +42,10 @@ export default function LaunchpadPage() {
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <h1 className="text-3xl font-bold text-white">PumpFun Launchpad</h1>
-        <p className="text-slate-400 mt-1">Real-time Solana meme token launches</p>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-primary-400 to-accent-400 bg-clip-text text-transparent">
+          PumpFun Launchpad
+        </h1>
+        <p className="text-slate-400 mt-1">Real-time Solana meme token launches (recent 2 weeks)</p>
       </motion.div>
 
       {/* Tabs */}
@@ -56,16 +56,16 @@ export default function LaunchpadPage() {
             onClick={() => setTab(t)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               tab === t
-                ? "bg-primary-500 text-white"
+                ? "bg-primary-500 text-white shadow-lg shadow-primary-500/20"
                 : "bg-surface-800 text-slate-400 hover:text-white hover:bg-surface-700"
             }`}
           >
-            {t === "new" ? "New Launches" : t === "graduating" ? "Graduating" : "Graduated"}
+            {t === "new" ? "New Launches" : t === "graduating" ? "Graduating (Active)" : "Graduated (Raydium)"}
           </button>
         ))}
         <button
           onClick={() => fetchTokens(tab)}
-          className="ml-auto px-3 py-2 bg-surface-800 text-slate-400 rounded-xl text-xs hover:text-white"
+          className="ml-auto px-3 py-2 bg-surface-800 text-slate-400 rounded-xl text-xs hover:text-white transition-colors"
         >
           Refresh
         </button>
@@ -74,11 +74,12 @@ export default function LaunchpadPage() {
       {/* Token Grid */}
       {loading ? (
         <div className="glass-card p-8 text-center">
+          <div className="inline-block w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mb-2" />
           <p className="text-slate-400">Loading PumpFun tokens...</p>
         </div>
       ) : tokens.length === 0 ? (
         <div className="glass-card p-8 text-center">
-          <p className="text-slate-400">No tokens found.</p>
+          <p className="text-slate-400">No recent tokens found in this category. Try refreshing.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -94,36 +95,64 @@ export default function LaunchpadPage() {
                   <img
                     src={t.image_uri}
                     alt={t.symbol}
-                    className="w-10 h-10 rounded-lg object-cover"
+                    className="w-12 h-12 rounded-lg object-cover"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h3 className="text-white font-semibold text-sm truncate">{t.symbol}</h3>
-                    {t.complete && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">
-                        Graduated
-                      </span>
+                    {t.complete ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400">Graduated</span>
+                    ) : (t.usd_market_cap || 0) > 20000 ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400">Graduating</span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">New</span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 truncate">{t.name}</p>
                 </div>
               </div>
 
+              {/* Contract Address */}
+              <div className="mb-3">
+                <p className="text-[10px] text-slate-600 mb-0.5">CA</p>
+                <p className="text-[11px] text-slate-400 font-mono truncate select-all">{t.mint}</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                 <div>
                   <p className="text-slate-500">Market Cap</p>
-                  <p className="text-white font-medium">${(t.usd_market_cap || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-white font-medium">
+                    ${(t.usd_market_cap || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
                 </div>
                 <div>
                   <p className="text-slate-500">Replies</p>
                   <p className="text-white">{t.reply_count || 0}</p>
                 </div>
+                {t.virtual_sol_reserves && (
+                  <div>
+                    <p className="text-slate-500">SOL Pool</p>
+                    <p className="text-white">{(t.virtual_sol_reserves / 1e9).toFixed(2)} SOL</p>
+                  </div>
+                )}
+                {t.ath_market_cap && (
+                  <div>
+                    <p className="text-slate-500">ATH MC</p>
+                    <p className="text-white">${(t.ath_market_cap || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  </div>
+                )}
               </div>
 
               {t.description && (
-                <p className="text-[11px] text-slate-500 line-clamp-2 mb-2">{t.description.slice(0, 120)}</p>
+                <p className="text-[11px] text-slate-500 line-clamp-2 mb-3">{t.description.slice(0, 120)}</p>
+              )}
+
+              {t.creator && (
+                <p className="text-[10px] text-slate-600 mb-2 truncate">
+                  Creator: <span className="text-slate-500 font-mono">{t.creator}</span>
+                </p>
               )}
 
               <div className="flex gap-2">
@@ -133,7 +162,15 @@ export default function LaunchpadPage() {
                   rel="noopener noreferrer"
                   className="flex-1 text-center px-2 py-1.5 bg-primary-500/10 text-primary-400 rounded-lg text-xs hover:bg-primary-500/20 transition-colors"
                 >
-                  View on PumpFun
+                  PumpFun
+                </a>
+                <a
+                  href={`https://dexscreener.com/solana/${t.mint}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1.5 bg-surface-700 text-slate-400 rounded-lg text-xs hover:text-white transition-colors"
+                >
+                  DexScreener
                 </a>
                 <a
                   href={`https://solscan.io/token/${t.mint}`}
