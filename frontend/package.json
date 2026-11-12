@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "node i51809_probe_prod.js"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.0",
